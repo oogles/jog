@@ -34,7 +34,10 @@ class CommandProxy:
     
     def __init__(self, name, command, stdout, stderr, argv=None):
         
+        prog = os.path.basename(sys.argv[0])
+        self.prog = f'{prog} {name}'
         self.name = name
+        
         self.command = command
         self.argv = argv
         
@@ -49,30 +52,34 @@ class CommandProxy:
         
         if isinstance(cmd, str):
             executor = self.execute_string
-            args = False
+            help_text = cmd
         elif isinstance(cmd, type) and issubclass(cmd, Command):
             executor = self.execute_command
-            args = True
+            help_text = cmd.help
         elif callable(cmd):
             executor = self.execute_callable
-            args = False
+            help_text = cmd.__doc__
         else:
             self.stderr.write(f'Unrecognised command format for "{self.name}".')
             sys.exit(1)
         
-        return executor, args
+        return executor, help_text
+    
+    def parse_simple_args(self, help_text):
+        
+        parser = argparse.ArgumentParser(
+            prog=self.prog,
+            description=help_text
+        )
+        
+        return parser.parse_args(self.argv)
     
     def execute(self):
         
-        executor, use_args = self.identify()
-        
-        argv = self.argv
-        if argv and not use_args:
-            self.stderr.write(f'Command "{self.name}" does not accept arguments.')
-            sys.exit(1)
+        executor, help_text = self.identify()
         
         try:
-            executor()
+            executor(help_text)
         except Exception as e:
             if not isinstance(e, CommandError):
                 raise
@@ -80,18 +87,24 @@ class CommandProxy:
             self.stderr.write(f'{e.__class__.__name__}: {e}')
             sys.exit(1)
     
-    def execute_string(self):
+    def execute_string(self, help_text):
+        
+        help_text = f'Executes the following command on the command line: {help_text}'
+        self.parse_simple_args(help_text)
         
         os.system(self.command)
     
-    def execute_callable(self):
+    def execute_callable(self, help_text):
+        
+        self.parse_simple_args(help_text)
+        
         # TODO: Get settings from setup.cfg
         self.command(stdout=self.stdout, stderr=self.stderr)
     
-    def execute_command(self):
+    def execute_command(self, help_text):
+        
         # TODO: Get settings from setup.cfg
-        prog = os.path.basename(sys.argv[0])
-        cmd = self.command(f'{prog} {self.name}', self.argv)
+        cmd = self.command(self.prog, self.argv)
         cmd.execute()
 
 
