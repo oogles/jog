@@ -4,6 +4,7 @@ import sys
 from importlib.util import spec_from_file_location, module_from_spec
 
 from jog_cmd import __version__ as version
+from jog_cmd.commands.base import Command
 
 JOG_FILE_NAME = 'jog.py'
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
@@ -101,12 +102,23 @@ def main(argv=None):
         print(f'Unknown command "{target}".')
         sys.exit(1)
     
-    # TODO: Handle function being callable
-    # TODO: Parse extra args per command?
+    if isinstance(command, str):
+        # TODO: Use something more robust?
+        os.system(command)
+        return
+    
     # TODO: Get settings from setup.cfg
     
-    # TODO: Use something more robust?
-    os.system(command)
+    # TODO: Handle complex definition (dictionary)?
+    # TODO: Handle command being callable (pass settings but not arguments.extra)
+    
+    if isinstance(command, type) and issubclass(command, Command):
+        prog = os.path.basename(sys.argv[0])
+        command = command(f'{prog} {target}', arguments.extra)
+        command.execute()
+    else:
+        print('Unrecognised command format.')
+        sys.exit(1)
 
 
 if __name__ == '__main__':
