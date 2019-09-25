@@ -4,7 +4,7 @@ import sys
 from importlib.util import spec_from_file_location, module_from_spec
 
 from jog_cmd import __version__ as version
-from jog_cmd.commands.base import Command
+from jog_cmd.commands.base import Command, OutputWrapper
 
 JOG_FILE_NAME = 'jog.py'
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
@@ -88,18 +88,19 @@ def parse_args(argv=None):
 def main(argv=None):
     
     arguments = parse_args(argv)
+    stderr = OutputWrapper(sys.stderr)
     
     try:
         commands = get_commands()
     except (FileNotFoundError, CommandDefinitionError) as e:
-        print(e)
+        stderr.write(e)
         sys.exit(1)
     
     target = arguments.target
     try:
         command = commands[target]
     except KeyError:
-        print(f'Unknown command "{target}".')
+        stderr.write(f'Unknown command "{target}".')
         sys.exit(1)
     
     if isinstance(command, str):
@@ -108,16 +109,17 @@ def main(argv=None):
         return
     
     # TODO: Get settings from setup.cfg
-    
     # TODO: Handle complex definition (dictionary)?
-    # TODO: Handle command being callable (pass settings but not arguments.extra)
     
     if isinstance(command, type) and issubclass(command, Command):
         prog = os.path.basename(sys.argv[0])
         command = command(f'{prog} {target}', arguments.extra)
         command.execute()
+    elif callable(command):
+        stdout = OutputWrapper(sys.stdout)
+        command(stdout=stdout, stderr=stderr)
     else:
-        print('Unrecognised command format.')
+        stderr.write('Unrecognised command format.')
         sys.exit(1)
 
 
