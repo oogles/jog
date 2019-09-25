@@ -41,7 +41,8 @@ class OutputWrapper(TextIOBase):
 
 class Command:
     """
-    
+    An advanced jogger command capable of defining its own arguments and
+    redirecting the stdout and stderr output streams.
     """
     
     help = ''

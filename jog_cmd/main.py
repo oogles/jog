@@ -4,7 +4,7 @@ import sys
 from importlib.util import spec_from_file_location, module_from_spec
 
 from jog_cmd import __version__ as version
-from jog_cmd.commands.base import Command, OutputWrapper
+from jog_cmd.commands.base import Command, CommandError, OutputWrapper
 
 JOG_FILE_NAME = 'jog.py'
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
@@ -17,6 +17,82 @@ class CommandDefinitionError(Exception):
     """
     
     pass
+
+
+class CommandProxy:
+    """
+    A helper for identifying and executing commands of different types. It will
+    identify and execute the following:
+    
+    - Strings: Executed as-is on the command line.
+    - Callables (e.g. functions): Called with ``stdout`` and ``stderr`` as
+        keyword arguments, allowing the command to use separate output streams
+        if necessary.
+    - ``Command`` class objects: Instantiated with the remainder of the argument
+        string (that not consumed by the ``jog`` program itself) and executed.
+    """
+    
+    def __init__(self, name, command, stdout, stderr, argv=None):
+        
+        self.name = name
+        self.command = command
+        self.argv = argv
+        
+        self.stdout = stdout
+        self.stderr = stderr
+    
+    def identify(self):
+        
+        cmd = self.command
+        
+        # TODO: Handle complex definition (dictionary)?
+        
+        if isinstance(cmd, str):
+            executor = self.execute_string
+            args = False
+        elif isinstance(cmd, type) and issubclass(cmd, Command):
+            executor = self.execute_command
+            args = True
+        elif callable(cmd):
+            executor = self.execute_callable
+            args = False
+        else:
+            self.stderr.write(f'Unrecognised command format for "{self.name}".')
+            sys.exit(1)
+        
+        return executor, args
+    
+    def execute(self):
+        
+        executor, use_args = self.identify()
+        
+        argv = self.argv
+        if argv and not use_args:
+            self.stderr.write(f'Command "{self.name}" does not accept arguments.')
+            sys.exit(1)
+        
+        try:
+            executor()
+        except Exception as e:
+            if not isinstance(e, CommandError):
+                raise
+            
+            self.stderr.write(f'{e.__class__.__name__}: {e}')
+            sys.exit(1)
+    
+    def execute_string(self):
+        
+        os.system(self.command)
+    
+    def execute_callable(self):
+        # TODO: Get settings from setup.cfg
+        self.command(stdout=self.stdout, stderr=self.stderr)
+    
+    def execute_command(self):
+        # TODO: Get settings from setup.cfg
+        prog = os.path.basename(sys.argv[0])
+        cmd = self.command(f'{prog} {self.name}', self.argv)
+        cmd.execute()
 
 
 def find_config_file(target_file_name):
@@ -88,6 +164,7 @@ def parse_args(argv=None):
 def main(argv=None):
     
     arguments = parse_args(argv)
+    stdout = OutputWrapper(sys.stdout)
     stderr = OutputWrapper(sys.stderr)
     
     try:
@@ -103,24 +180,8 @@ def main(argv=None):
         stderr.write(f'Unknown command "{target}".')
         sys.exit(1)
     
-    if isinstance(command, str):
-        # TODO: Use something more robust?
-        os.system(command)
-        return
-    
-    # TODO: Get settings from setup.cfg
-    # TODO: Handle complex definition (dictionary)?
-    
-    if isinstance(command, type) and issubclass(command, Command):
-        prog = os.path.basename(sys.argv[0])
-        command = command(f'{prog} {target}', arguments.extra)
-        command.execute()
-    elif callable(command):
-        stdout = OutputWrapper(sys.stdout)
-        command(stdout=stdout, stderr=stderr)
-    else:
-        stderr.write('Unrecognised command format.')
-        sys.exit(1)
+    proxy = CommandProxy(target, command, stdout, stderr, arguments.extra)
+    proxy.execute()
 
 
 if __name__ == '__main__':
