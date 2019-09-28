@@ -3,8 +3,8 @@ import os
 import sys
 from importlib.util import spec_from_file_location, module_from_spec
 
-from jog_cmd import __version__ as version
-from jog_cmd.commands.base import Command, CommandError, OutputWrapper
+from jogger import __version__ as version
+from jogger.commands.base import Command, CommandError, OutputWrapper
 
 JOG_FILE_NAME = 'jog.py'
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
