@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 from importlib.util import spec_from_file_location, module_from_spec
+from inspect import cleandoc
 
 from jogger import __version__ as version
 from jogger.tasks.base import Task, TaskError, OutputWrapper
@@ -34,6 +35,21 @@ class TaskProxy:
     
     def __init__(self, name, task, stdout, stderr, argv=None):
         
+        if isinstance(task, str):
+            self.executor = self.execute_string
+            self.help_text = task
+            self.has_own_args = False
+        elif isinstance(task, type) and issubclass(task, Task):
+            self.executor = self.execute_class
+            self.help_text = task.help
+            self.has_own_args = True
+        elif callable(task):
+            self.executor = self.execute_callable
+            self.help_text = cleandoc(task.__doc__)
+            self.has_own_args = False
+        else:
+            raise TaskDefinitionError(f'Unrecognised task format for "{name}".')
+        
         prog = os.path.basename(sys.argv[0])
         self.prog = f'{prog} {name}'
         self.name = name
@@ -44,42 +60,20 @@ class TaskProxy:
         self.stdout = stdout
         self.stderr = stderr
     
-    def identify(self):
-        
-        task = self.task
-        
-        # TODO: Handle complex definition (dictionary)?
-        
-        if isinstance(task, str):
-            executor = self.execute_string
-            help_text = task
-        elif isinstance(task, type) and issubclass(task, Task):
-            executor = self.execute_class
-            help_text = task.help
-        elif callable(task):
-            executor = self.execute_callable
-            help_text = task.__doc__
-        else:
-            self.stderr.write(f'Unrecognised task format for "{self.name}".')
-            sys.exit(1)
-        
-        return executor, help_text
-    
     def parse_simple_args(self, help_text):
         
         parser = argparse.ArgumentParser(
             prog=self.prog,
-            description=help_text
+            description=help_text,
+            formatter_class=argparse.RawTextHelpFormatter
         )
         
         return parser.parse_args(self.argv)
     
     def execute(self):
         
-        executor, help_text = self.identify()
-        
         try:
-            executor(help_text)
+            self.executor()
         except Exception as e:
             if not isinstance(e, TaskError):
                 raise
@@ -87,21 +81,21 @@ class TaskProxy:
             self.stderr.write(f'{e.__class__.__name__}: {e}')
             sys.exit(1)
     
-    def execute_string(self, help_text):
+    def execute_string(self):
         
-        help_text = f'Executes the following task on the command line: {help_text}'
+        help_text = f'Executes the following task on the command line:\n{self.help_text}'
         self.parse_simple_args(help_text)
         
         os.system(self.task)
     
-    def execute_callable(self, help_text):
+    def execute_callable(self):
         
-        self.parse_simple_args(help_text)
+        self.parse_simple_args(self.help_text)
         
         # TODO: Get settings from setup.cfg
         self.task(stdout=self.stdout, stderr=self.stderr)
     
-    def execute_class(self, help_text):
+    def execute_class(self):
         
         # TODO: Get settings from setup.cfg
         t = self.task(self.prog, self.argv)
@@ -152,12 +146,19 @@ def get_tasks():
 def parse_args(argv=None):
     
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter,
         description='Execute common, project-specific tasks.',
-        epilog='Any additional arguments are passed through to the executed tasks.'
+        epilog=(
+            'Any additional arguments are passed through to the executed tasks.'
+            '\n\n'
+            'Run without arguments from within a target project to output all '
+            f'tasks configured in that project\'s {JOG_FILE_NAME} file.'
+        )
     )
     
     parser.add_argument(
         'task_name',
+        nargs='?',
         metavar='task',
         help='The name of the task'
     )
@@ -174,6 +175,24 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def show_tasks(tasks, stdout, stderr):
+    
+    if not tasks:
+        stdout.write(f'No tasks defined.')
+    else:
+        stdout.write(f'Available tasks:\n\n')
+        for task_name, task in tasks.items():
+            try:
+                proxy = TaskProxy(task_name, task, stdout, stderr)
+            except TaskDefinitionError:
+                # Skip tasks with improper definitions
+                pass
+            else:
+                stdout.write(f'{task_name}: {proxy.help_text}')
+                if proxy.has_own_args:
+                    stdout.write(f'    See "{proxy.prog} --help" for usage details')
+
+
 def main(argv=None):
     
     arguments = parse_args(argv)
@@ -187,14 +206,21 @@ def main(argv=None):
         sys.exit(1)
     
     task_name = arguments.task_name
-    try:
-        task = tasks[task_name]
-    except KeyError:
-        stderr.write(f'Unknown task "{task_name}".')
-        sys.exit(1)
-    
-    proxy = TaskProxy(task_name, task, stdout, stderr, arguments.extra)
-    proxy.execute()
+    if task_name is None:
+        show_tasks(tasks, stdout, stderr)
+    else:
+        try:
+            task = tasks[task_name]
+        except KeyError:
+            stderr.write(f'Unknown task "{task_name}".')
+            sys.exit(1)
+        
+        try:
+            proxy = TaskProxy(task_name, task, stdout, stderr, arguments.extra)
+        except TaskDefinitionError as e:
+            stderr.write(str(e))
+        else:
+            proxy.execute()
 
 
 if __name__ == '__main__':
