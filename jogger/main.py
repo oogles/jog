@@ -4,41 +4,41 @@ import sys
 from importlib.util import spec_from_file_location, module_from_spec
 
 from jogger import __version__ as version
-from jogger.commands.base import Command, CommandError, OutputWrapper
+from jogger.tasks.base import Task, TaskError, OutputWrapper
 
 JOG_FILE_NAME = 'jog.py'
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
 
 
-class CommandDefinitionError(Exception):
+class TaskDefinitionError(Exception):
     """
-    Raised when there is an error in the definition of the command list used
-    by ``jog``.
+    Raised when there is an error in the definition of the task list used by
+    ``jogger``.
     """
     
     pass
 
 
-class CommandProxy:
+class TaskProxy:
     """
-    A helper for identifying and executing commands of different types. It will
+    A helper for identifying and executing tasks of different types. It will
     identify and execute the following:
     
     - Strings: Executed as-is on the command line.
     - Callables (e.g. functions): Called with ``stdout`` and ``stderr`` as
-        keyword arguments, allowing the command to use separate output streams
+        keyword arguments, allowing the task to use separate output streams
         if necessary.
-    - ``Command`` class objects: Instantiated with the remainder of the argument
+    - ``Task`` class objects: Instantiated with the remainder of the argument
         string (that not consumed by the ``jog`` program itself) and executed.
     """
     
-    def __init__(self, name, command, stdout, stderr, argv=None):
+    def __init__(self, name, task, stdout, stderr, argv=None):
         
         prog = os.path.basename(sys.argv[0])
         self.prog = f'{prog} {name}'
         self.name = name
         
-        self.command = command
+        self.task = task
         self.argv = argv
         
         self.stdout = stdout
@@ -46,21 +46,21 @@ class CommandProxy:
     
     def identify(self):
         
-        cmd = self.command
+        task = self.task
         
         # TODO: Handle complex definition (dictionary)?
         
-        if isinstance(cmd, str):
+        if isinstance(task, str):
             executor = self.execute_string
-            help_text = cmd
-        elif isinstance(cmd, type) and issubclass(cmd, Command):
-            executor = self.execute_command
-            help_text = cmd.help
-        elif callable(cmd):
+            help_text = task
+        elif isinstance(task, type) and issubclass(task, Task):
+            executor = self.execute_class
+            help_text = task.help
+        elif callable(task):
             executor = self.execute_callable
-            help_text = cmd.__doc__
+            help_text = task.__doc__
         else:
-            self.stderr.write(f'Unrecognised command format for "{self.name}".')
+            self.stderr.write(f'Unrecognised task format for "{self.name}".')
             sys.exit(1)
         
         return executor, help_text
@@ -81,7 +81,7 @@ class CommandProxy:
         try:
             executor(help_text)
         except Exception as e:
-            if not isinstance(e, CommandError):
+            if not isinstance(e, TaskError):
                 raise
             
             self.stderr.write(f'{e.__class__.__name__}: {e}')
@@ -89,23 +89,23 @@ class CommandProxy:
     
     def execute_string(self, help_text):
         
-        help_text = f'Executes the following command on the command line: {help_text}'
+        help_text = f'Executes the following task on the command line: {help_text}'
         self.parse_simple_args(help_text)
         
-        os.system(self.command)
+        os.system(self.task)
     
     def execute_callable(self, help_text):
         
         self.parse_simple_args(help_text)
         
         # TODO: Get settings from setup.cfg
-        self.command(stdout=self.stdout, stderr=self.stderr)
+        self.task(stdout=self.stdout, stderr=self.stderr)
     
-    def execute_command(self, help_text):
+    def execute_class(self, help_text):
         
         # TODO: Get settings from setup.cfg
-        cmd = self.command(self.prog, self.argv)
-        cmd.execute()
+        t = self.task(self.prog, self.argv)
+        t.execute()
 
 
 def find_config_file(target_file_name):
@@ -135,7 +135,7 @@ def find_config_file(target_file_name):
     return matched_file
 
 
-def get_commands():
+def get_tasks():
     
     jog_file = find_config_file(JOG_FILE_NAME)
     
@@ -144,22 +144,22 @@ def get_commands():
     spec.loader.exec_module(jog_file)
     
     try:
-        return jog_file.commands
+        return jog_file.tasks
     except AttributeError:
-        raise CommandDefinitionError(f'No commands dictionary defined in {JOG_FILE_NAME}.')
+        raise TaskDefinitionError(f'No tasks dictionary defined in {JOG_FILE_NAME}.')
 
 
 def parse_args(argv=None):
     
     parser = argparse.ArgumentParser(
-        description='Execute shortcuts to common, project-specific tasks.',
-        epilog='Any additional arguments are passed through to the executed shortcut command.'
+        description='Execute common, project-specific tasks.',
+        epilog='Any additional arguments are passed through to the executed tasks.'
     )
     
     parser.add_argument(
-        'target',
-        metavar='command',
-        help='The name of the shortcut command'
+        'task_name',
+        metavar='task',
+        help='The name of the task'
     )
     
     parser.add_argument(
@@ -181,19 +181,19 @@ def main(argv=None):
     stderr = OutputWrapper(sys.stderr)
     
     try:
-        commands = get_commands()
-    except (FileNotFoundError, CommandDefinitionError) as e:
-        stderr.write(e)
+        tasks = get_tasks()
+    except (FileNotFoundError, TaskDefinitionError) as e:
+        stderr.write(str(e))
         sys.exit(1)
     
-    target = arguments.target
+    task_name = arguments.task_name
     try:
-        command = commands[target]
+        task = tasks[task_name]
     except KeyError:
-        stderr.write(f'Unknown command "{target}".')
+        stderr.write(f'Unknown task "{task_name}".')
         sys.exit(1)
     
-    proxy = CommandProxy(target, command, stdout, stderr, arguments.extra)
+    proxy = TaskProxy(task_name, task, stdout, stderr, arguments.extra)
     proxy.execute()
 
 
