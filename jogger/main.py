@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import sys
 from importlib.util import spec_from_file_location, module_from_spec
 from inspect import cleandoc
@@ -9,6 +10,7 @@ from jogger.tasks.base import Task, TaskError, OutputWrapper
 
 JOG_FILE_NAME = 'jog.py'
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
+TASK_NAME_RE = re.compile(r'^\w+$')
 
 
 class TaskDefinitionError(Exception):
@@ -34,6 +36,17 @@ class TaskProxy:
     """
     
     def __init__(self, name, task, stdout, stderr, argv=None):
+        
+        try:
+            valid_name = TASK_NAME_RE.match(name)
+        except TypeError:  # not a string
+            valid_name = False
+        
+        if not valid_name:
+            raise TaskDefinitionError(
+                f'Task name "{name}" is not valid - must be a string '
+                'containing alphanumeric characters and the underscore only.'
+            )
         
         if isinstance(task, str):
             self.executor = self.execute_string
@@ -175,22 +188,16 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def show_tasks(tasks, stdout, stderr):
+def show_tasks(tasks, stdout):
     
     if not tasks:
         stdout.write(f'No tasks defined.')
     else:
         stdout.write(f'Available tasks:\n\n')
         for task_name, task in tasks.items():
-            try:
-                proxy = TaskProxy(task_name, task, stdout, stderr)
-            except TaskDefinitionError:
-                # Skip tasks with improper definitions
-                pass
-            else:
-                stdout.write(f'{task_name}: {proxy.help_text}')
-                if proxy.has_own_args:
-                    stdout.write(f'    See "{proxy.prog} --help" for usage details')
+            stdout.write(f'{task_name}: {task.help_text}')
+            if task.has_own_args:
+                stdout.write(f'    See "{task.prog} --help" for usage details')
 
 
 def main(argv=None):
@@ -201,13 +208,15 @@ def main(argv=None):
     
     try:
         tasks = get_tasks()
+        for name, task in tasks.items():
+            tasks[name] = TaskProxy(name, task, stdout, stderr, arguments.extra)
     except (FileNotFoundError, TaskDefinitionError) as e:
         stderr.write(str(e))
         sys.exit(1)
     
     task_name = arguments.task_name
     if task_name is None:
-        show_tasks(tasks, stdout, stderr)
+        show_tasks(tasks, stdout)
     else:
         try:
             task = tasks[task_name]
@@ -215,12 +224,7 @@ def main(argv=None):
             stderr.write(f'Unknown task "{task_name}".')
             sys.exit(1)
         
-        try:
-            proxy = TaskProxy(task_name, task, stdout, stderr, arguments.extra)
-        except TaskDefinitionError as e:
-            stderr.write(str(e))
-        else:
-            proxy.execute()
+        task.execute()
 
 
 if __name__ == '__main__':
