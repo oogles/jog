@@ -6,7 +6,8 @@ from importlib.util import spec_from_file_location, module_from_spec
 from inspect import cleandoc
 
 from jogger import __version__ as version
-from jogger.tasks.base import Task, TaskError, OutputWrapper
+from jogger.output import OutputWrapper, Styler
+from jogger.tasks.base import Task, TaskError
 
 JOG_FILE_NAME = 'jog.py'
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
@@ -49,14 +50,17 @@ class TaskProxy:
             )
         
         if isinstance(task, str):
+            self.exec_mode = 'cli'
             self.executor = self.execute_string
             self.help_text = task
             self.has_own_args = False
         elif isinstance(task, type) and issubclass(task, Task):
+            self.exec_mode = 'python'
             self.executor = self.execute_class
             self.help_text = task.help
             self.has_own_args = True
         elif callable(task):
+            self.exec_mode = 'python'
             self.executor = self.execute_callable
             self.help_text = cleandoc(task.__doc__)
             self.has_own_args = False
@@ -193,9 +197,18 @@ def show_tasks(tasks, stdout):
     if not tasks:
         stdout.write(f'No tasks defined.')
     else:
-        stdout.write(f'Available tasks:\n\n')
+        stdout.write('Available tasks:\n', 'label')
+        
         for task_name, task in tasks.items():
-            stdout.write(f'{task_name}: {task.help_text}')
+            task_name = stdout.styler.heading(task_name)
+            
+            help_text = task.help_text
+            if task.exec_mode == 'cli':
+                help_text = stdout.styler.apply(help_text, fg='green')
+            else:
+                help_text = stdout.styler.apply(help_text, fg='blue')
+            
+            stdout.write(f'{task_name}: {help_text}')
             if task.has_own_args:
                 stdout.write(f'    See "{task.prog} --help" for usage details')
 
@@ -203,8 +216,10 @@ def show_tasks(tasks, stdout):
 def main(argv=None):
     
     arguments = parse_args(argv)
-    stdout = OutputWrapper(sys.stdout)
-    stderr = OutputWrapper(sys.stderr)
+    styler = Styler()
+    
+    stdout = OutputWrapper(sys.stdout, styler=styler)
+    stderr = OutputWrapper(sys.stderr, styler=styler)
     
     try:
         tasks = get_tasks()

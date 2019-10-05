@@ -1,6 +1,7 @@
 import sys
 from argparse import ArgumentParser, FileType
-from io import TextIOBase
+
+from ..output import OutputWrapper
 
 #
 # The classes herein are heavily based on Django's management command
@@ -16,33 +17,6 @@ class TaskError(Exception):
     """
     
     pass
-
-
-class OutputWrapper(TextIOBase):
-    """
-    Simple wrapper around ``stdout``/``stderr`` to normalise some behaviours.
-    """
-    
-    def __init__(self, out, ending='\n'):
-        
-        self._out = out
-        self.ending = ending
-
-    def __getattr__(self, name):
-        
-        return getattr(self._out, name)
-
-    def isatty(self):
-        
-        return hasattr(self._out, 'isatty') and self._out.isatty()
-
-    def write(self, msg, ending=None):
-        
-        ending = self.ending if ending is None else ending
-        if ending and not msg.endswith(ending):
-            msg += ending
-        
-        self._out.write(msg)
 
 
 class Task:
