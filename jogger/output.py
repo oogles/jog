@@ -119,11 +119,12 @@ class OutputWrapper(TextIOBase):
     Simple wrapper around ``stdout``/``stderr`` to normalise some behaviours.
     """
     
-    def __init__(self, out, ending='\n', styler=None):
+    def __init__(self, out, ending='\n', styler=None, default_style=None):
         
         self._out = out
         self.ending = ending
         self.styler = styler if styler else Styler()
+        self.default_style = default_style
     
     def __getattr__(self, name):
         
@@ -138,6 +139,7 @@ class OutputWrapper(TextIOBase):
         if use_ending:
             msg += self.ending
         
+        style = style or self.default_style
         if style:
             msg = getattr(self.styler, style)(msg)
         

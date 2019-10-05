@@ -219,7 +219,7 @@ def main(argv=None):
     styler = Styler()
     
     stdout = OutputWrapper(sys.stdout, styler=styler)
-    stderr = OutputWrapper(sys.stderr, styler=styler)
+    stderr = OutputWrapper(sys.stderr, styler=styler, default_style='error')
     
     try:
         tasks = get_tasks()
