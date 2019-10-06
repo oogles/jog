@@ -6,7 +6,7 @@ from importlib.util import spec_from_file_location, module_from_spec
 from inspect import cleandoc
 
 from jogger import __version__ as version
-from jogger.output import OutputWrapper, Styler
+from jogger.output import OutputWrapper
 from jogger.tasks.base import Task, TaskError
 
 JOG_FILE_NAME = 'jog.py'
@@ -89,14 +89,8 @@ class TaskProxy:
     
     def execute(self):
         
-        try:
-            self.executor()
-        except Exception as e:
-            if not isinstance(e, TaskError):
-                raise
-            
-            self.stderr.write(f'{e.__class__.__name__}: {e}')
-            sys.exit(1)
+        # Proxy to the appropriate method
+        self.executor()
     
     def execute_string(self):
         
@@ -192,34 +186,11 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def show_tasks(tasks, stdout):
-    
-    if not tasks:
-        stdout.write(f'No tasks defined.')
-    else:
-        stdout.write('Available tasks:\n', 'label')
-        
-        for task_name, task in tasks.items():
-            task_name = stdout.styler.heading(task_name)
-            
-            help_text = task.help_text
-            if task.exec_mode == 'cli':
-                help_text = stdout.styler.apply(help_text, fg='green')
-            else:
-                help_text = stdout.styler.apply(help_text, fg='blue')
-            
-            stdout.write(f'{task_name}: {help_text}')
-            if task.has_own_args:
-                stdout.write(f'    See "{task.prog} --help" for usage details')
-
-
 def main(argv=None):
     
     arguments = parse_args(argv)
-    styler = Styler()
-    
-    stdout = OutputWrapper(sys.stdout, styler=styler)
-    stderr = OutputWrapper(sys.stderr, styler=styler, default_style='error')
+    stdout = OutputWrapper(sys.stdout)
+    stderr = OutputWrapper(sys.stderr, default_style='error')
     
     try:
         tasks = get_tasks()
@@ -230,16 +201,32 @@ def main(argv=None):
         sys.exit(1)
     
     task_name = arguments.task_name
-    if task_name is None:
-        show_tasks(tasks, stdout)
-    else:
+    if task_name:
         try:
             task = tasks[task_name]
+            task.execute()
         except KeyError:
             stderr.write(f'Unknown task "{task_name}".')
             sys.exit(1)
-        
-        task.execute()
+        except TaskError as e:
+            stderr.write(f'{e.__class__.__name__}: {e}')
+            sys.exit(1)
+    elif not tasks:
+        stdout.write(f'No tasks defined.')
+    else:
+        stdout.write('Available tasks:\n', 'label')
+        styler = stdout.styler
+        for task_name, task in tasks.items():
+            task_name = styler.heading(task_name)
+            help_text = task.help_text
+            if task.exec_mode == 'cli':
+                help_text = styler.apply(help_text, fg='green')
+            else:
+                help_text = styler.apply(help_text, fg='blue')
+            
+            stdout.write(f'{task_name}: {help_text}')
+            if task.has_own_args:
+                stdout.write(f'    See "{task.prog} --help" for usage details')
 
 
 if __name__ == '__main__':

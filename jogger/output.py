@@ -15,19 +15,6 @@ OPTIONS = {'bold': '1', 'underscore': '4', 'blink': '5', 'reverse': '7', 'concea
 RESET = '\x1b[0m'
 
 
-def supports_color():
-    """
-    Return True if the running system's terminal supports color, and False
-    otherwise.
-    """
-    
-    plat = sys.platform
-    supported_platform = plat != 'Pocket PC' and (plat != 'win32' or 'ANSICON' in os.environ)
-    is_a_tty = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
-    
-    return supported_platform and is_a_tty
-
-
 def style(text='', fg=None, bg=None, options=(), reset=True):
     """
     Return ``text``, enclosed in ANSI graphics codes, as dictated by
@@ -99,7 +86,7 @@ class Styler:
         
         self.no_color = no_color
         
-        if no_color or not supports_color():
+        if no_color:
             for role in self.PALETTE:
                 setattr(self, role, lambda text: text)
         else:
@@ -119,20 +106,29 @@ class OutputWrapper(TextIOBase):
     Simple wrapper around ``stdout``/``stderr`` to normalise some behaviours.
     """
     
-    def __init__(self, out, ending='\n', styler=None, default_style=None):
+    def __init__(self, out, ending='\n', default_style=None, no_color=False):
         
         self._out = out
         self.ending = ending
-        self.styler = styler if styler else Styler()
+        
+        no_color = no_color or not self.supports_color()
+        self.styler = Styler(no_color)
         self.default_style = default_style
     
     def __getattr__(self, name):
         
         return getattr(self._out, name)
     
-    def isatty(self):
+    def supports_color(self):
+        """
+        Return True if the output stream supports color, and False otherwise.
+        """
         
-        return hasattr(self._out, 'isatty') and self._out.isatty()
+        plat = sys.platform
+        supported_platform = plat != 'Pocket PC' and (plat != 'win32' or 'ANSICON' in os.environ)
+        is_a_tty = hasattr(self._out, 'isatty') and self._out.isatty()
+        
+        return supported_platform and is_a_tty
     
     def write(self, msg, style=None, use_ending=True):
         

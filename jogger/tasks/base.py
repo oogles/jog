@@ -1,7 +1,7 @@
 import sys
 from argparse import ArgumentParser, FileType
 
-from ..output import OutputWrapper
+from ..output import OutputWrapper, Styler
 
 #
 # The classes herein are heavily based on Django's management command
@@ -35,7 +35,8 @@ class Task:
         kwargs = vars(options)
         
         self.stdout = OutputWrapper(kwargs['stdout'])
-        self.stderr = OutputWrapper(kwargs['stderr'])
+        self.stderr = OutputWrapper(kwargs['stderr'], default_style='error')
+        self.styler = self.stdout.styler
         
         self.args = kwargs.pop('args', ())
         self.kwargs = kwargs
