@@ -34,8 +34,9 @@ class Task:
         
         kwargs = vars(options)
         
-        self.stdout = OutputWrapper(kwargs['stdout'])
-        self.stderr = OutputWrapper(kwargs['stderr'], default_style='error')
+        no_color = kwargs['no_color']
+        self.stdout = OutputWrapper(kwargs['stdout'], no_color=no_color)
+        self.stderr = OutputWrapper(kwargs['stderr'], no_color=no_color, default_style='error')
         self.styler = self.stdout.styler
         
         self.args = kwargs.pop('args', ())
@@ -72,6 +73,12 @@ class Task:
             nargs='?',
             type=FileType('w'),
             default=sys.stderr
+        )
+        
+        parser.add_argument(
+            '--no-color',
+            action='store_true',
+            help="Don't colourise the command output.",
         )
         
         self.add_arguments(parser)
