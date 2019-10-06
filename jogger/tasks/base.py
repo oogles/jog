@@ -1,7 +1,8 @@
+import subprocess
 import sys
 from argparse import ArgumentParser, FileType
 
-from ..output import OutputWrapper, Styler
+from ..output import OutputWrapper
 
 #
 # The classes herein are heavily based on Django's management command
@@ -91,6 +92,19 @@ class Task:
         """
         
         pass
+    
+    def cli(self, cmd):
+        """
+        Run a command on the system's command line, in the context of the task's
+        stdout and stderr output streams.
+        """
+        
+        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        self.stdout.write(result.stdout.decode('utf-8'), use_ending=False)
+        self.stderr.write(result.stderr.decode('utf-8'), use_ending=False)
+        
+        return result
     
     def execute(self):
         """
