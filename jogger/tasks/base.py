@@ -20,7 +20,9 @@ class Task:
     
     help = ''
     
-    def __init__(self, name, argv):
+    def __init__(self, name, settings, argv):
+        
+        self.settings = settings
         
         parser = self.create_parser(name)
         options = parser.parse_args(argv)

@@ -1,3 +1,4 @@
+import configparser
 import os
 from importlib.util import module_from_spec, spec_from_file_location
 
@@ -5,6 +6,8 @@ from jogger.exceptions import TaskDefinitionError
 
 MAX_CONFIG_FILE_SEARCH_DEPTH = 10
 JOG_FILE_NAME = 'jog.py'
+CONFIG_FILE_NAME = 'setup.cfg'
+CONFIG_BLOCK_PREFIX = 'jogger'
 
 
 def find_config_file(target_file_name):
@@ -46,3 +49,14 @@ def get_tasks():
         return jog_file.tasks
     except AttributeError:
         raise TaskDefinitionError(f'No tasks dictionary defined in {JOG_FILE_NAME}.')
+
+
+def get_task_settings(task_name):
+    
+    config_file = configparser.ConfigParser()
+    config_file.read('setup.cfg')
+    
+    try:
+        return config_file[f'{CONFIG_BLOCK_PREFIX}:{task_name}']
+    except KeyError:
+        return {}

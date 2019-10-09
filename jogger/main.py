@@ -6,9 +6,9 @@ from inspect import cleandoc
 
 from jogger import __version__ as version
 from jogger.exceptions import TaskDefinitionError
-from jogger.utils.input import JOG_FILE_NAME, get_tasks
-from jogger.utils.output import OutputWrapper
 from jogger.tasks.base import Task, TaskError
+from jogger.utils.input import JOG_FILE_NAME, get_task_settings, get_tasks
+from jogger.utils.output import OutputWrapper
 
 TASK_NAME_RE = re.compile(r'^\w+$')
 
@@ -93,13 +93,13 @@ class TaskProxy:
         
         self.parse_simple_args(self.help_text)
         
-        # TODO: Get settings from setup.cfg
-        self.task(stdout=self.stdout, stderr=self.stderr)
+        settings = get_task_settings(self.name)
+        self.task(settings=settings, stdout=self.stdout, stderr=self.stderr)
     
     def execute_class(self):
         
-        # TODO: Get settings from setup.cfg
-        t = self.task(self.prog, self.argv)
+        settings = get_task_settings(self.name)
+        t = self.task(self.prog, settings, self.argv)
         t.execute()
 
 
