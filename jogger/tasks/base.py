@@ -2,22 +2,14 @@ import subprocess
 import sys
 from argparse import ArgumentParser, FileType
 
-from ..output import OutputWrapper
+from jogger.exceptions import TaskError
+from jogger.utils.output import OutputWrapper
 
 #
 # The classes herein are heavily based on Django's management command
 # infrastructure, found in ``django.core.management.base``, though greatly
 # simplified and without any of the Django machinery.
 #
-
-
-class TaskError(Exception):
-    """
-    Used to indicate problem during the execution of a task, yielding a nicely
-    printed error message in the appropriate output stream (e.g. ``stderr``).
-    """
-    
-    pass
 
 
 class Task:
