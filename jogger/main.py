@@ -67,6 +67,22 @@ class TaskProxy:
         self.stdout = stdout
         self.stderr = stderr
     
+    def output_help_line(self):
+        
+        stdout = self.stdout
+        styler = stdout.styler
+        
+        name = styler.heading(self.name)
+        help_text = self.help_text
+        if self.exec_mode == 'cli':
+            help_text = styler.apply(help_text, fg='green')
+        else:
+            help_text = styler.apply(help_text, fg='blue')
+        
+        stdout.write(f'{name}: {help_text}')
+        if self.has_own_args:
+            stdout.write(f'    See "{self.prog} --help" for usage details')
+    
     def parse_simple_args(self, help_text):
         
         parser = argparse.ArgumentParser(
@@ -164,18 +180,8 @@ def main(argv=None):
         stdout.write(f'No tasks defined.')
     else:
         stdout.write('Available tasks:\n', 'label')
-        styler = stdout.styler
-        for task_name, task in tasks.items():
-            task_name = styler.heading(task_name)
-            help_text = task.help_text
-            if task.exec_mode == 'cli':
-                help_text = styler.apply(help_text, fg='green')
-            else:
-                help_text = styler.apply(help_text, fg='blue')
-            
-            stdout.write(f'{task_name}: {help_text}')
-            if task.has_own_args:
-                stdout.write(f'    See "{task.prog} --help" for usage details')
+        for task in tasks.values():
+            task.output_help_line()
 
 
 if __name__ == '__main__':
