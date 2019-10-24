@@ -4,7 +4,9 @@ from importlib.util import module_from_spec, spec_from_file_location
 
 from jogger.exceptions import TaskDefinitionError
 
-MAX_CONFIG_FILE_SEARCH_DEPTH = 10
+from .files import find_file
+
+MAX_CONFIG_FILE_SEARCH_DEPTH = 8
 JOG_FILE_NAME = 'jog.py'
 CONFIG_FILE_NAME = 'setup.cfg'
 CONFIG_BLOCK_PREFIX = 'jogger'
@@ -13,28 +15,8 @@ CONFIG_BLOCK_PREFIX = 'jogger'
 def find_config_file(target_file_name):
     
     path = os.getcwd()
-    matched_file = None
-    depth = 0
     
-    while path and depth < MAX_CONFIG_FILE_SEARCH_DEPTH:
-        
-        filename = os.path.join(path, target_file_name)
-        
-        if os.path.exists(filename):
-            matched_file = filename
-            break
-        
-        new_path = os.path.dirname(path)
-        if new_path == path:
-            break
-        
-        path = new_path
-        depth += 1
-    
-    if not matched_file:
-        raise FileNotFoundError(f'Could not find {target_file_name}.')
-    
-    return matched_file
+    return find_file(target_file_name, path, MAX_CONFIG_FILE_SEARCH_DEPTH)
 
 
 def get_tasks():
@@ -53,8 +35,9 @@ def get_tasks():
 
 def get_task_settings(task_name):
     
+    config_file_path = find_config_file(CONFIG_FILE_NAME)
     config_file = configparser.ConfigParser()
-    config_file.read('setup.cfg')
+    config_file.read(config_file_path)
     
     try:
         return config_file[f'{CONFIG_BLOCK_PREFIX}:{task_name}']
