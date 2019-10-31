@@ -35,11 +35,21 @@ def get_tasks():
 
 def get_task_settings(task_name):
     
-    config_file_path = find_config_file(CONFIG_FILE_NAME)
     config_file = configparser.ConfigParser()
-    config_file.read(config_file_path)
     
     try:
-        return config_file[f'{CONFIG_BLOCK_PREFIX}:{task_name}']
-    except KeyError:
-        return {}
+        config_file_path = find_config_file(CONFIG_FILE_NAME)
+    except FileNotFoundError:
+        # Silently ignore non-existent settings files, they are not mandatory
+        pass
+    else:
+        config_file.read(config_file_path)
+    
+    section = f'{CONFIG_BLOCK_PREFIX}:{task_name}'
+    
+    # If the section does not exist, add a dummy one. This allows this method
+    # to always return a value of a consistent type.
+    if not config_file.has_section(section):
+        config_file.add_section(section)
+    
+    return config_file[section]
