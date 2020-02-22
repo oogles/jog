@@ -16,85 +16,31 @@ OPTIONS = {'bold': '1', 'underscore': '4', 'blink': '5', 'reverse': '7', 'concea
 RESET = '\x1b[0m'
 
 
-def style(text='', fg=None, bg=None, options=(), reset=True):
-    """
-    Return ``text``, enclosed in ANSI graphics codes, as dictated by
-    ``fg``, ``bg``, and ``options``. If ``reset`` is ``True``, the returned
-    text will be terminated by the RESET code. Return just RESET code if no
-    parameters are given.
-    
-    Valid colors:
-        'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'
-    
-    Valid options:
-        'bold', 'underscore', 'blink', 'reverse', 'conceal'
-    
-    Examples:
-        style('hello', fg='red', bg='blue', opts=('blink', ))
-        style()
-        style('goodbye', opts=('underscore', ))
-        print(style('first line', fg='red', reset=False))
-        print('this should be red too')
-        print(style('and so should this'))
-        print('this should not be red')
-    """
-    
-    if reset:
-        text = f'{text}{RESET}'
-    
-    code_list = []
-    
-    if fg:
-        code_list.append(FOREGROUND[fg])
-    
-    if bg:
-        code_list.append(BACKGROUND[bg])
-    
-    for o in options:
-        code_list.append(OPTIONS[o])
-    
-    code_list = ';'.join(code_list)
-    return f'\x1b[{code_list}m{text}'
-
-
-def make_style(**kwargs):
-    """
-    Return a function with default parameters for style().
-    
-    Example:
-        bold_red = make_style(opts=('bold',), fg='red')
-        print(bold_red('hello'))
-        KEYWORD = make_style(fg='yellow')
-        COMMENT = make_style(fg='blue', opts=('bold',))
-    """
-    
-    return lambda text: style(text, **kwargs)
-
-
 class Styler:
     """
-    An object containing shortcuts to generate styled text for a palette of
-    preconfigured styles.
+    An object containing methods for generating styled text for a palette of
+    preconfigured style roles. Text is styled by wrapping it in appropriate
+    ANSI graphics codes.
     
-    The ``PALLET`` attribute defines the name and attributes of each supported
-    style, and ``make_style`` is used to generate a method for each that can
-    subsequently be used to produce text with the matching style. Subclasses
-    can define their own palettes.
+    Text styling can be disabled using the ``no_color`` constructor argument.
+    When ``True``, all methods will return the provided text unmodified. This
+    enables a common API between environments that support styled text and
+    those that do not.
+    
+    ``PALLET`` defines the name and attributes of each preconfigured role. Its
+    entries are mapped into methods on the class that can be used as shortcuts
+    to apply the corresponding set of style attributes to the given text.
+    Subclasses can define their own palettes.
     
     Additionally, the ``apply()`` method can be used to apply any arbitrary
-    text styles if the ``PALLET`` configuration doesn't include a suitable
-    option.
-    
-    Can also be constructed with the ``no_color`` argument and all styling
-    methods will ignore the configured attributes and return text unmodified.
-    This enables a common API between environments that support styled text and
-    those that do not.
+    text styles if the ``PALLET`` configuration doesn't include a suitable role.
     
     Usage::
     
         styler = Styler()
         success_message = styler.success('It worked!')
         error_message = styler.error('It failed!')
+        message = styler.apply('hello', fg='red', bg='blue', opts=('blink', ))
     """
     
     PALETTE = {
@@ -111,19 +57,85 @@ class Styler:
         
         self.no_color = no_color
         
-        if no_color:
-            for role in self.PALETTE:
-                setattr(self, role, lambda text: text)
-        else:
-            for role, fmt in self.PALETTE.items():
-                setattr(self, role, make_style(**fmt))
+        for role, fmt in self.PALETTE.items():
+            setattr(self, role, self.preconfigure(**fmt))
     
-    def apply(self, text, *args, **kwargs):
+    def preconfigure(self, **kwargs):
+        """
+        Return a function with default parameters for ``apply()``.
+        
+        Examples::
+            
+            bold_red = styler.preconfigure(opts=('bold',), fg='red')
+            print(bold_red('hello'))
+            
+            KEYWORD = styler.preconfigure(fg='yellow')
+            COMMENT = styler.preconfigure(fg='blue', opts=('bold',))
+        """
+        
+        return lambda text: self.apply(text, **kwargs)
+    
+    def apply(self, text, fg=None, bg=None, options=(), reset=True):
+        """
+        Return ``text``, enclosed in ANSI graphics codes, as dictated by
+        ``fg``, ``bg``, and ``options``. If ``reset`` is ``True``, the returned
+        text will be terminated by the RESET code.
+        
+        If configured with ``no_color=True``, return the text unmodified.
+        
+        Valid colors:
+            'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'
+        
+        Valid options:
+            'bold', 'underscore', 'blink', 'reverse', 'conceal'
+        
+        Examples::
+            
+            styler.apply('hello', fg='red', bg='blue', opts=('blink', ))
+            styler.apply('goodbye', opts=('underscore', ))
+            print(styler.apply('first line', fg='red', reset=False))
+            print('this should be red too')
+            print(styler.apply('and so should this'))
+            print('this should not be red')
+        """
         
         if self.no_color:
             return text
         
-        return style(text, *args, **kwargs)
+        if reset:
+            text = f'{text}{RESET}'
+        
+        code_list = []
+        
+        if fg:
+            code_list.append(FOREGROUND[fg])
+        
+        if bg:
+            code_list.append(BACKGROUND[bg])
+        
+        for o in options:
+            code_list.append(OPTIONS[o])
+        
+        if code_list:
+            code_list = ';'.join(code_list)
+            text = f'\x1b[{code_list}m{text}'
+        
+        return text
+    
+    def reset(self):
+        """
+        Return the ANSI RESET graphics code. Can be used to reset a style
+        created by calling ``apply(..., reset=False)``.
+        
+        If configured with ``no_color=True``, return an empty string.
+        
+        :return: The ANSI RESET graphics code.
+        """
+        
+        if self.no_color:
+            return ''
+        
+        return RESET
 
 
 class OutputWrapper(TextIOBase):
