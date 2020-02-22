@@ -6,9 +6,9 @@ from jogger.exceptions import TaskError
 from jogger.utils.output import OutputWrapper
 
 #
-# The classes herein are heavily based on Django's management command
-# infrastructure, found in ``django.core.management.base``, though greatly
-# simplified and without any of the Django machinery.
+# The class-based "task" interface is heavily based on Django's management
+# command infrastructure, found in ``django.core.management.base``, though
+# greatly simplified and without any of the Django machinery.
 #
 
 
@@ -108,11 +108,8 @@ class Task:
         
         try:
             self.handle(*self.args, **self.kwargs)
-        except Exception as e:
-            if not isinstance(e, TaskError):
-                raise
-            
-            self.stderr.write(f'{e.__class__.__name__}: {e}')
+        except TaskError as e:
+            self.stderr.write(str(e))
             sys.exit(1)
     
     def handle(self, *args, **kwargs):

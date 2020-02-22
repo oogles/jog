@@ -1,10 +1,9 @@
 import os
-import sys
 from collections import OrderedDict
 
 from jogger.utils.files import walk
 
-from .base import Task
+from .base import Task, TaskError
 
 try:
     import flake8  # noqa
@@ -141,8 +140,7 @@ class LintTask(Task):
         # Get the appropriate good ending from settings
         good_ending = self.settings.get('fable_good_endings', DEFAULT_GOOD_ENDING)
         if good_ending not in ENDINGS:
-            self.stderr.write(f'Invalid value for fable_good_endings setting ({good_ending}).')
-            sys.exit(1)
+            raise TaskError(f'Invalid value for fable_good_endings setting ({good_ending}).')
         
         # Compile inverse dictionary of bad line endings
         bad_endings = {v: k for k, v in ENDINGS.items() if k != good_ending}
@@ -153,8 +151,7 @@ class LintTask(Task):
         try:
             max_filesize = int(max_filesize)
         except ValueError:
-            self.stderr.write(f'Invalid value for fable_max_filesize setting ({max_filesize}).')
-            sys.exit(1)
+            raise TaskError(f'Invalid value for fable_max_filesize setting ({max_filesize}).')
         
         result = True
         skipped = 0

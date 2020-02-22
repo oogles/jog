@@ -169,12 +169,14 @@ def main(argv=None):
     if task_name:
         try:
             task = tasks[task_name]
-            task.execute()
         except KeyError:
             stderr.write(f'Unknown task "{task_name}".')
             sys.exit(1)
+        
+        try:
+            task.execute()
         except TaskError as e:
-            stderr.write(f'{e.__class__.__name__}: {e}')
+            stderr.write(str(e))
             sys.exit(1)
     elif not tasks:
         stdout.write(f'No tasks defined.')
