@@ -13,6 +13,14 @@ CONFIG_BLOCK_PREFIX = 'jogger'
 
 
 def find_config_file(target_file_name):
+    """
+    Search upwards from the current working directory looking for a config file
+    named ``target_file_name``. The number of parent directories to search
+    through is controlled by ``MAX_CONFIG_FILE_SEARCH_DEPTH``.
+    
+    :param target_file_name: The filename of the target file.
+    :return: The absolute path of the located file.
+    """
     
     path = os.getcwd()
     
@@ -20,6 +28,14 @@ def find_config_file(target_file_name):
 
 
 def get_tasks():
+    """
+    Search upwards from the current working directory looking for the task
+    definition file (``JOG_FILE_NAME``). Import the file as a Python module
+    and return its inner ``tasks`` dictionary. Raise ``TaskDefinitionError``
+    if no ``tasks`` dictionary is defined in the imported module.
+    
+    :return: The task definition file's dictionary of tasks.
+    """
     
     jog_file = find_config_file(JOG_FILE_NAME)
     
@@ -34,6 +50,15 @@ def get_tasks():
 
 
 def get_task_settings(task_name):
+    """
+    Search upwards from the current working directory looking for the project
+    config file (``CONFIG_FILE_NAME``). Parse the file and return the section
+    corresponding to ``task_name``. If no such section exists, return an empty
+    section.
+    
+    :return: The config file section, as a ``configparser.SectionProxy`` object,
+        for the given task.
+    """
     
     config_file = configparser.ConfigParser()
     

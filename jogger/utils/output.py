@@ -72,6 +72,30 @@ def make_style(**kwargs):
 
 
 class Styler:
+    """
+    An object containing shortcuts to generate styled text for a palette of
+    preconfigured styles.
+    
+    The ``PALLET`` attribute defines the name and attributes of each supported
+    style, and ``make_style`` is used to generate a method for each that can
+    subsequently be used to produce text with the matching style. Subclasses
+    can define their own palettes.
+    
+    Additionally, the ``apply()`` method can be used to apply any arbitrary
+    text styles if the ``PALLET`` configuration doesn't include a suitable
+    option.
+    
+    Can also be constructed with the ``no_color`` argument and all styling
+    methods will ignore the configured attributes and return text unmodified.
+    This enables a common API between environments that support styled text and
+    those that do not.
+    
+    Usage::
+    
+        styler = Styler()
+        success_message = styler.success('It worked!')
+        error_message = styler.error('It failed!')
+    """
     
     PALETTE = {
         'success': {'fg': 'green', 'options': ('bold', )},
