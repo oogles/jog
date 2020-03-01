@@ -28,6 +28,13 @@ class DocsTask(Task):
                 'pages from scratch.'
             )
         )
+        
+        parser.add_argument(
+            '-l', f'--link',
+            action='store_true',
+            dest='link_only',
+            help='Output the link to previously built documentation and exit.'
+        )
     
     def handle(self, **options):
         
@@ -42,16 +49,27 @@ class DocsTask(Task):
         if not os.path.exists(docs_dir):
             raise TaskError(f'Documentation directory not found at {docs_dir}.')
         
-        command = [f'cd {docs_dir}']
-        if options['full']:
-            command.append('make clean')
+        if options['link_only']:
+            show_link = True
+            output_prefix = ''
+        else:
+            command = [f'cd {docs_dir}']
+            if options['full']:
+                command.append('make clean')
+            
+            command.append('make html')
+            
+            result = self.cli(' && '.join(command))
+            show_link = result.returncode == 0
+            output_prefix = '\n'
         
-        command.append('make html')
-        
-        result = self.cli(' && '.join(command))
-        
-        if result.returncode == 0:
+        if show_link:
             index_path = os.path.join(docs_dir, '_build', 'html', 'index.html')
-            self.stdout.write(self.styler.label(
-                f'\nGenerated documentation can be viewed at: file://{index_path})'
-            ))
+            if os.path.exists(index_path):
+                self.stdout.write(self.styler.label(
+                    f'{output_prefix}Generated documentation can be viewed at: file://{index_path}'
+                ))
+            else:
+                self.stdout.write(self.styler.warning(
+                    f'{output_prefix}Generated documentation not found, expected at: {index_path}'
+                ))
