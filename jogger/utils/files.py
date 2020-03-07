@@ -58,12 +58,15 @@ def pathmatch(path, patterns):
     """
     Test whether the ``path`` string matches any of the strings in ``patterns``.
     ``path`` can be a relative file path, with both its basename and absolute
-    path tested against ``patterns``.
+    path also tested against ``patterns``.
     
     :param path: The file path to test.
     :param patterns: An iterable of patterns to test against.
     :return: ``True`` if a match is found, ``False`` if not.
     """
+    
+    if fnmatch(path, patterns):
+        return True
     
     basename = os.path.basename(path)
     if fnmatch(basename, patterns):
