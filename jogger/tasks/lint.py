@@ -186,5 +186,5 @@ class LintTask(Task):
             else:
                 result = True
             
-            self.outcomes['fable'] = result
+            self.outcomes['migrations'] = result
             self.stdout.write('')  # newline
