@@ -84,22 +84,32 @@ class LintTask(Task):
         
         if explicit_steps:
             run = explicit_steps
+            explicit = True
         else:
             run = implicit_steps
+            explicit = False
         
         for step in run:
-            getattr(self, f'handle_{step}')()
+            getattr(self, f'handle_{step}')(explicit)
         
-        self.log_step('Summary')
+        summary = []
         for label, result in self.outcomes.items():
             if result:
                 styled_result = self.styler.success('OK')
             else:
                 styled_result = self.styler.error('FAIL')
             
-            self.stdout.write(f'{label}: {styled_result}')
+            summary.append(f'{label}: {styled_result}')
+        
+        if summary:
+            self.log_step('Summary')
+            self.stdout.write('\n'.join(summary))
     
-    def handle_python(self):
+    def handle_python(self, explicit):
+        
+        if explicit and not HAS_ISORT and not HAS_FLAKE8:
+            self.stderr.write('Cannot lint python: Neither isort nor flake8 are available.')
+            return
         
         if HAS_ISORT:
             self.log_step('Running isort...')
@@ -131,7 +141,7 @@ class LintTask(Task):
         
         return excludes
     
-    def handle_fable(self):
+    def handle_fable(self, explicit):
         
         self.log_step('Running fable...')
         
@@ -174,7 +184,11 @@ class LintTask(Task):
         self.outcomes['fable'] = result
         self.stdout.write('')  # newline
     
-    def handle_migrations(self):
+    def handle_migrations(self, explicit):
+        
+        if explicit and not HAS_DJANGO:
+            self.stderr.write('Cannot check migrations: Django is not available.')
+            return
         
         if HAS_DJANGO:
             self.log_step('\nChecking for missing migrations...')
