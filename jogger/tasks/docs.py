@@ -20,7 +20,7 @@ class DocsTask(Task):
     def add_arguments(self, parser):
         
         parser.add_argument(
-            '-f', f'--full',
+            '-f', '--full',
             action='store_true',
             dest='full',
             help=(
@@ -30,7 +30,7 @@ class DocsTask(Task):
         )
         
         parser.add_argument(
-            '-l', f'--link',
+            '-l', '--link',
             action='store_true',
             dest='link_only',
             help='Output the link to previously built documentation and exit.'

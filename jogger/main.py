@@ -64,7 +64,7 @@ def main(argv=None):
         
         task.execute()
     elif not tasks:
-        stdout.write(f'No tasks defined.')
+        stdout.write('No tasks defined.')
     else:
         stdout.write('Available tasks:', 'label')
         for task in tasks.values():
