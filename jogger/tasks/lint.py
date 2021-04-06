@@ -113,7 +113,7 @@ class LintTask(Task):
         
         if HAS_ISORT:
             self.log_step('Running isort...')
-            result = self.cli('isort -rc --check-only --diff .')
+            result = self.cli('isort --check-only --diff .')
             self.outcomes['isort'] = result.returncode == 0
             self.stdout.write('')  # newline
         
