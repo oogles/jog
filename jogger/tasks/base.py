@@ -139,7 +139,7 @@ class TaskProxy:
         string (that not consumed by the ``jog`` program itself) and executed.
     """
     
-    def __init__(self, name, task, stdout, stderr, argv=None):
+    def __init__(self, prog, name, task, stdout, stderr, argv=None):
         
         try:
             valid_name = TASK_NAME_RE.match(name)
@@ -170,7 +170,6 @@ class TaskProxy:
         else:
             raise TaskDefinitionError(f'Unrecognised task format for "{name}".')
         
-        prog = os.path.basename(sys.argv[0])
         self.prog = f'{prog} {name}'
         self.name = name
         

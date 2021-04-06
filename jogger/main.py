@@ -8,9 +8,10 @@ from jogger.utils.input import JOG_FILE_NAME, get_tasks
 from jogger.utils.output import OutputWrapper
 
 
-def parse_args(argv=None):
+def parse_args(prog, argv=None):
     
     parser = argparse.ArgumentParser(
+        prog=prog,
         formatter_class=argparse.RawTextHelpFormatter,
         description='Execute common, project-specific tasks.',
         epilog=(
@@ -31,7 +32,7 @@ def parse_args(argv=None):
     parser.add_argument(
         '--version',
         action='version',
-        version=f'%(prog)s {version}',
+        version=f'jogger {version}',
         help='Display the version number and exit'
     )
     
@@ -42,14 +43,15 @@ def parse_args(argv=None):
 
 def main(argv=None):
     
-    arguments = parse_args(argv)
+    prog = 'jog'
+    arguments = parse_args(prog, argv)
     stdout = OutputWrapper(sys.stdout)
     stderr = OutputWrapper(sys.stderr, default_style='error')
     
     try:
         tasks = get_tasks()
         for name, task in tasks.items():
-            tasks[name] = TaskProxy(name, task, stdout, stderr, arguments.extra)
+            tasks[name] = TaskProxy(prog, name, task, stdout, stderr, arguments.extra)
     except (FileNotFoundError, TaskDefinitionError) as e:
         stderr.write(str(e))
         sys.exit(1)
