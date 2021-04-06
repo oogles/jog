@@ -165,7 +165,7 @@ class TaskProxy:
         elif callable(task):
             self.exec_mode = 'python'
             self.executor = self.execute_callable
-            self.help_text = cleandoc(task.__doc__)
+            self.help_text = cleandoc(task.__doc__) if task.__doc__ else ''
             self.has_own_args = False
         else:
             raise TaskDefinitionError(f'Unrecognised task format for "{name}".')
