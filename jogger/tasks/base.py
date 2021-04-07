@@ -103,8 +103,8 @@ class Task:
         
         result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-        self.stdout.write(result.stdout.decode('utf-8'), use_ending=False)
-        self.stderr.write(result.stderr.decode('utf-8'), use_ending=False)
+        self.stdout.write(result.stdout.decode('utf-8'), ending=None)
+        self.stderr.write(result.stderr.decode('utf-8'), ending=None)
         
         return result
     

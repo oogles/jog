@@ -160,7 +160,7 @@ class TestTask(Task):
         if not html_report:
             return
         
-        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'), use_ending=False)
+        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'), ending=None)
         self.cli('coverage html')
         
         html_report_path = os.path.abspath('htmlcov/index.html')

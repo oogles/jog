@@ -154,10 +154,9 @@ class OutputWrapper(TextIOBase):
     Simple wrapper around ``stdout``/``stderr`` to normalise some behaviours.
     """
     
-    def __init__(self, out, ending='\n', default_style=None, no_color=False):
+    def __init__(self, out, default_style=None, no_color=False):
         
         self._out = out
-        self.ending = ending
         
         no_color = no_color or not self.supports_color()
         self.styler = Styler(no_color)
@@ -178,10 +177,10 @@ class OutputWrapper(TextIOBase):
         
         return supported_platform and is_a_tty
     
-    def write(self, msg, style=None, use_ending=True):
+    def write(self, msg, style=None, ending='\n'):
         
-        if use_ending:
-            msg += self.ending
+        if ending:
+            msg += ending
         
         style = style or self.default_style
         if style:
