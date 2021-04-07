@@ -88,15 +88,17 @@ class Task:
     
     def add_arguments(self, parser):
         """
-        Hook for subclassed tasks to add custom arguments.
+        Custom tasks should override this method to add any custom command line
+        arguments they require.
         """
         
+        # Do nothing - just a hook for subclasses to add custom arguments
         pass
     
     def cli(self, cmd):
         """
         Run a command on the system's command line, in the context of the task's
-        stdout and stderr output streams.
+        :attr:`~Task.stdout` and :attr:`~Task.stderr` output streams.
         """
         
         result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -132,11 +134,14 @@ class TaskProxy:
     identify and execute the following:
     
     - Strings: Executed as-is on the command line.
-    - Callables (e.g. functions): Called with ``stdout`` and ``stderr`` as
-        keyword arguments, allowing the task to use separate output streams
-        if necessary.
+    - Callables (e.g. functions): Called with ``settings``, ``stdout``, and
+        ``stderr`` as keyword arguments, allowing the task to alter its
+        behaviour on a per-project basis and use separate output streams if
+        necessary.
     - ``Task`` class objects: Instantiated with the remainder of the argument
         string (that not consumed by the ``jog`` program itself) and executed.
+        Also has access to project-level settings and the ``stdout``/``stderr``
+        output streams, in addition to accepting its own custom arguments.
     """
     
     def __init__(self, prog, name, task, stdout, stderr, argv=None):

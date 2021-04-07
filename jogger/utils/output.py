@@ -27,13 +27,14 @@ class Styler:
     enables a common API between environments that support styled text and
     those that do not.
     
-    ``PALLET`` defines the name and attributes of each preconfigured role. Its
-    entries are mapped into methods on the class that can be used as shortcuts
-    to apply the corresponding set of style attributes to the given text.
-    Subclasses can define their own palettes.
+    :attr:`~Styler.PALETTE` defines the name and attributes of each
+    preconfigured role. Its entries are mapped into methods on the class that
+    can be used as shortcuts to apply the corresponding set of style attributes
+    to the given text. Subclasses can define their own palettes.
     
-    Additionally, the ``apply()`` method can be used to apply any arbitrary
-    text styles if the ``PALLET`` configuration doesn't include a suitable role.
+    Additionally, the :meth:`~Styler.apply` method can be used to apply any
+    arbitrary text styles if the :attr:`~Styler.PALETTE` configuration doesn't
+    include a suitable role.
     
     Usage::
     
@@ -83,10 +84,12 @@ class Styler:
         
         If configured with ``no_color=True``, return the text unmodified.
         
-        Valid colors:
+        Valid colors::
+        
             'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'
         
-        Valid options:
+        Valid options::
+        
             'bold', 'underscore', 'blink', 'reverse', 'conceal'
         
         Examples::
@@ -97,6 +100,14 @@ class Styler:
             print('this should be red too')
             print(styler.apply('and so should this'))
             print('this should not be red')
+        
+        :param text: The text to style.
+        :param fg: The foreground colour to apply to ``text``.
+        :param bg: The background colour to apply to ``text``.
+        :param options: The display options to apply to ``text``.
+        :param reset: ``True`` to clear all applied styles at the end of ``text``,
+            ``False`` to allow them to affect subsequent output.
+        :return: The styled text.
         """
         
         if self.no_color:
