@@ -48,8 +48,8 @@ def listify_multiline_string(string):
     :return: The resulting list.
     """
     
-    l = [i.strip() for i in string.splitlines()]
-    return filter(None, l)
+    result = [i.strip() for i in string.splitlines()]
+    return filter(None, result)
 
 
 class LintTask(Task):
@@ -83,10 +83,6 @@ class LintTask(Task):
                 dest=f'do_{name}',
                 help=help_text
             )
-    
-    def log_step(self, intro):
-        
-        self.stdout.write(self.styler.label(intro))
     
     def handle(self, **options):
         
@@ -123,7 +119,7 @@ class LintTask(Task):
             summary.append(f'{label}: {styled_result}')
         
         if summary:
-            self.log_step('Summary')
+            self.stdout.write('Summary', style='label')
             self.stdout.write('\n'.join(summary))
     
     def handle_python(self, explicit):
@@ -133,13 +129,13 @@ class LintTask(Task):
             return
         
         if HAS_ISORT:
-            self.log_step('Running isort...')
+            self.stdout.write('Running isort...', style='label')
             result = self.cli('isort --check-only --diff .')
             self.outcomes['isort'] = result.returncode == 0
             self.stdout.write('')  # newline
         
         if HAS_FLAKE8:
-            self.log_step('Running flake8...')
+            self.stdout.write('Running flake8...', style='label')
             result = self.cli('flake8 .')
             self.outcomes['flake8'] = result.returncode == 0
             self.stdout.write('')  # newline
@@ -161,7 +157,7 @@ class LintTask(Task):
     
     def handle_fable(self, explicit):
         
-        self.log_step('Running fable...')
+        self.stdout.write('Running fable...', style='label')
         
         excludes = self._get_fable_excludes()
         
@@ -210,7 +206,7 @@ class LintTask(Task):
             
             return
         
-        self.log_step('Running bandit...')
+        self.stdout.write('Running bandit...', style='label')
         
         cmd = 'bandit . -r'
         
@@ -241,7 +237,7 @@ class LintTask(Task):
             return
         
         if HAS_DJANGO:
-            self.log_step('\nChecking for missing migrations...')
+            self.stdout.write('Checking for missing migrations...', style='label')
             
             try:
                 call_command('makemigrations', dry_run=True, check=True, stdout=self.stdout, stderr=self.stderr)
