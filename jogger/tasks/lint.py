@@ -18,6 +18,12 @@ except ImportError:
     HAS_ISORT = False
 
 try:
+    import bandit  # noqa
+    HAS_BANDIT = True
+except ImportError:
+    HAS_BANDIT = False
+
+try:
     from django.core.management import call_command  # noqa
     HAS_DJANGO = True
 except ImportError:
@@ -37,13 +43,15 @@ class LintTask(Task):
     
     help = (
         'Lint the project. Automatically detects, and uses if found, isort and '
-        'flake8 for linting Python code. Also runs fable (Find All Bad Line '
-        'Endings) and performs a dry-run of makemigrations (if Django is detected).'
+        'flake8 for linting Python code, and bandit for finding common security '
+        'issues in Python code. Also runs fable (Find All Bad Line Endings) and '
+        'performs a dry-run of makemigrations (if Django is detected).'
     )
     
     steps = [
         ('python', '-p', 'Perform linting of Python code.'),
         ('fable', '-f', 'Find all bad line endings.'),
+        ('bandit', '-b', 'Perform a Bandit security scan.'),
         ('migrations', '-m', 'Perform makemigrations dry-run.')
     ]
     
@@ -182,6 +190,19 @@ class LintTask(Task):
             self.stdout.write(f'Skipped {skipped} large files')
         
         self.outcomes['fable'] = result
+        self.stdout.write('')  # newline
+    
+    def handle_bandit(self, explicit):
+        
+        if not HAS_BANDIT:
+            if explicit:
+                self.stderr.write('Cannot run bandit: Package is not available.')
+            
+            return
+        
+        self.log_step('Running bandit...')
+        result = self.cli('bandit -r -q .')
+        self.outcomes['bandit'] = result.returncode == 0
         self.stdout.write('')  # newline
     
     def handle_migrations(self, explicit):
