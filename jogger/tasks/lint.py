@@ -39,6 +39,19 @@ DEFAULT_GOOD_ENDING = 'LF'
 DEFAULT_MAX_FILESIZE = 1024 * 1024  # 1MB in bytes
 
 
+def listify_multiline_string(string):
+    """
+    Return a list constructed by splitting the given multiline string,
+    stripping whitespace, and filtering out empty values.
+    
+    :param string: The multiline string to convert into a list.
+    :return: The resulting list.
+    """
+    
+    l = [i.strip() for i in string.splitlines()]
+    return filter(None, l)
+
+
 class LintTask(Task):
     
     help = (
@@ -142,10 +155,7 @@ class LintTask(Task):
         except KeyError:
             pass
         else:
-            # Split the multiline string into a list, stripping whitespace and
-            # filtering out empty values
-            extra_excludes = [p.strip() for p in extra_excludes.splitlines()]
-            excludes.update(filter(None, extra_excludes))
+            excludes.update(listify_multiline_string(extra_excludes))
         
         return excludes
     
@@ -204,11 +214,21 @@ class LintTask(Task):
         
         cmd = 'bandit . -r'
         
+        # Set the command's verbosity based on the verbosity level of the task
         verbosity = self.kwargs['verbosity']
         if verbosity < 2:
             cmd = f'{cmd} -q'  # run in "quiet" mode
         elif verbosity > 2:
             cmd = f'{cmd} -v'  # run in "verbose" mode
+        
+        # Add any configured excludes
+        try:
+            excludes = self.settings['bandit_exclude']
+        except KeyError:
+            pass
+        else:
+            excludes = ','.join(listify_multiline_string(excludes))
+            cmd = f'{cmd} -x {excludes}'
         
         result = self.cli(cmd)
         self.outcomes['bandit'] = result.returncode == 0
