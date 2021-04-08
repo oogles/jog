@@ -201,7 +201,16 @@ class LintTask(Task):
             return
         
         self.log_step('Running bandit...')
-        result = self.cli('bandit -r -q .')
+        
+        cmd = 'bandit . -r'
+        
+        verbosity = self.kwargs['verbosity']
+        if verbosity < 2:
+            cmd = f'{cmd} -q'  # run in "quiet" mode
+        elif verbosity > 2:
+            cmd = f'{cmd} -v'  # run in "verbose" mode
+        
+        result = self.cli(cmd)
         self.outcomes['bandit'] = result.returncode == 0
         self.stdout.write('')  # newline
     
