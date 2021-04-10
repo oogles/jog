@@ -6,7 +6,7 @@ import sys
 from inspect import cleandoc
 
 from jogger.exceptions import TaskDefinitionError, TaskError
-from jogger.utils.input import get_task_settings
+from jogger.utils.input import get_task_settings, get_tasks
 from jogger.utils.output import OutputWrapper
 
 TASK_NAME_RE = re.compile(r'^\w+$')
@@ -117,6 +117,71 @@ class Task:
         self.stderr.write(result.stderr.decode('utf-8'), ending=None)
         
         return result
+    
+    def get_task_proxy(self, task_name, *args):
+        """
+        Return an object representing the task matching the given name,
+        configured with the given arguments, if any. This proxy object can be
+        used to execute the task, regardless of whether it is defined as a
+        string, function, or class::
+        
+            proxy = self.get_task_proxy('test')
+            proxy.execute()
+        
+        Arguments only apply if the target task is defined as a class, and
+        should be provided as individual strings, e.g.::
+        
+            proxy = get_task_proxy('test', '-v', '2', 'myapp.tests', '--keepdb')
+        
+        If the target task is defined as a class, common arguments of the
+        source task will be propagated automatically, including:
+        ``-v``/``--verbosity``, ``--stdout``, ``--stderr``, and ``--no-color``.
+        
+        :param task_name: The task name as a string.
+        :param args: Extra task arguments, as individual strings.
+        :return: The task proxy instance.
+        """
+        
+        try:
+            task = get_tasks()[task_name]
+        except FileNotFoundError as e:
+            raise TaskDefinitionError(e)
+        except KeyError:
+            raise TaskDefinitionError(f'Unknown task "{task_name}".')
+        
+        # Get the proxy instance, allow raising TaskDefinitionError if necessary
+        proxy = TaskProxy('proxy.execute', task_name, task, self.stdout, self.stderr)
+        
+        if proxy.has_own_args:
+            # The target task is also class-based, so common arguments of the
+            # source task can be propagated, if not provided explicitly
+            args = list(args)
+            
+            if '-v' not in args and '--verbosity' not in args:
+                args.extend(('--verbosity', str(self.kwargs['verbosity'])))
+            
+            if '--stdout' not in args:
+                stdout = self.kwargs['stdout'].name
+                
+                # Only pass the argument if not using the standard system output stream
+                if stdout != '<stdout>':
+                    args.extend(('--stdout', stdout))
+            
+            if '--stderr' not in args:
+                stderr = self.kwargs['stderr'].name
+                
+                # Only pass the argument if not using the standard system error stream
+                if stderr != '<stderr>':
+                    args.extend(('--stderr', stderr))
+            
+            if '--no-color' not in args and self.kwargs['no_color']:
+                args.append('--no-color')
+            
+            proxy.argv = args
+        elif args:
+            raise TaskError('String- and function-based tasks do not accept arguments.')
+        
+        return proxy
     
     def execute(self):
         """

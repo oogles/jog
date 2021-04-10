@@ -24,3 +24,4 @@ A ``jog.py`` file is all that is necessary to use ``jogger``, and it can be as s
 
     ref/tasks
     ref/output
+    ref/exceptions

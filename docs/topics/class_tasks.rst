@@ -56,6 +56,43 @@ Sometimes it is useful to suppress the output a command would typically generate
 
     self.cli('echo "hello"', no_output=True)
 
+Executing other tasks
+---------------------
+
+Sometimes it is useful for one task to be able to directly execute another. Class-based tasks support this through the :meth:`~Task.get_task_proxy` method. This method returns a proxy object that can be used to execute a task in a common way, regardless of whether it was defined as a string, function, or class.
+
+If the given task hasn't been defined in ``jog.py``, or it is improperly defined, the method will raise :exc:`~jogger.exceptions.TaskDefinitionError`.
+
+The following example attempts to execute the ``build`` task if it has been defined, otherwise proceeds uninterrupted:
+
+.. code-block:: python
+
+    from jogger.exceptions import TaskDefinitionError
+    from jogger.tasks import Task
+
+
+    class UpdateTask(Task):
+
+        help = (
+            'Update the application to the latest version, including '
+            'building any necessary assets if configured.'
+        )
+
+        def handle(self, *args, **options):
+
+            # ...
+
+            # Update assets if a task exists to do so
+            try:
+                build_proxy = self.get_task_proxy('build', '--all')
+            except TaskDefinitionError:
+                pass
+            else:
+                self.stdout.write('Building all assets', style='label')
+                build_proxy.execute()
+
+            # ...
+
 
 .. _class_tasks_settings:
 

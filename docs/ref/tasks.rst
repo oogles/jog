@@ -41,3 +41,4 @@ Tasks
     .. automethod:: add_arguments
     .. automethod:: handle
     .. automethod:: cli
+    .. automethod:: get_task_proxy
