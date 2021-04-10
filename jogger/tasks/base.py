@@ -118,6 +118,32 @@ class Task:
         
         return result
     
+    def _get_task_proxy_args(self, args):
+        
+        args = list(args)
+        
+        if '-v' not in args and '--verbosity' not in args:
+            args.extend(('--verbosity', str(self.kwargs['verbosity'])))
+        
+        if '--stdout' not in args:
+            stdout = self.kwargs['stdout'].name
+            
+            # Only pass the argument if not using the standard system output stream
+            if stdout != '<stdout>':
+                args.extend(('--stdout', stdout))
+        
+        if '--stderr' not in args:
+            stderr = self.kwargs['stderr'].name
+            
+            # Only pass the argument if not using the standard system error stream
+            if stderr != '<stderr>':
+                args.extend(('--stderr', stderr))
+        
+        if '--no-color' not in args and self.kwargs['no_color']:
+            args.append('--no-color')
+        
+        return args
+    
     def get_task_proxy(self, task_name, *args):
         """
         Return an object representing the task matching the given name,
@@ -155,29 +181,7 @@ class Task:
         if proxy.has_own_args:
             # The target task is also class-based, so common arguments of the
             # source task can be propagated, if not provided explicitly
-            args = list(args)
-            
-            if '-v' not in args and '--verbosity' not in args:
-                args.extend(('--verbosity', str(self.kwargs['verbosity'])))
-            
-            if '--stdout' not in args:
-                stdout = self.kwargs['stdout'].name
-                
-                # Only pass the argument if not using the standard system output stream
-                if stdout != '<stdout>':
-                    args.extend(('--stdout', stdout))
-            
-            if '--stderr' not in args:
-                stderr = self.kwargs['stderr'].name
-                
-                # Only pass the argument if not using the standard system error stream
-                if stderr != '<stderr>':
-                    args.extend(('--stderr', stderr))
-            
-            if '--no-color' not in args and self.kwargs['no_color']:
-                args.append('--no-color')
-            
-            proxy.argv = args
+            proxy.argv = self._get_task_proxy_args(args)
         elif args:
             raise TaskError('String- and function-based tasks do not accept arguments.')
         
