@@ -95,15 +95,25 @@ class Task:
         # Do nothing - just a hook for subclasses to add custom arguments
         pass
     
-    def cli(self, cmd):
+    def cli(self, cmd, no_output=False):
         """
         Run a command on the system's command line, in the context of the task's
-        :attr:`~Task.stdout` and :attr:`~Task.stderr` output streams.
+        :attr:`~Task.stdout` and :attr:`~Task.stderr` output streams. If
+        ``no_output`` is ``True``, suppress standard output (errors are still
+        displayed).
+        
+        :param cmd: The command string to execute.
+        :param no_output: ``True`` to suppress standard output from the command.
+        :return: The command result object.
         """
         
         result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-        self.stdout.write(result.stdout.decode('utf-8'), ending=None)
+        # Display the output of the command unless instructed to suppress it
+        if not no_output:
+            self.stdout.write(result.stdout.decode('utf-8'), ending=None)
+        
+        # Display any errors regardless
         self.stderr.write(result.stderr.decode('utf-8'), ending=None)
         
         return result

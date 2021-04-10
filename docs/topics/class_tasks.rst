@@ -41,6 +41,21 @@ In ``jog.py``, a class-based task might look like:
 
 Similarly to :doc:`function-based tasks <func_tasks>`, any output from the task can be printed using the :attr:`~Task.stdout` and :attr:`~Task.stderr` attributes, which offer additional control over the output. See :doc:`output`.
 
+Executing commands
+------------------
+
+As noted above, commands can be executed on the command line via the :meth:`~Task.cli` method. This method uses the Python `subprocess module <https://docs.python.org/3/library/subprocess.html>`_ and returns ``CompletedProcess`` `result object <https://docs.python.org/3/library/subprocess.html#subprocess.CompletedProcess>`_. Among other things, this object contains the following useful attributes:
+
+* ``returncode``: The integer exit status of the command. Typically, an exit status of ``0`` indicates success.
+* ``stdout``: The complete standard output from the command, if any.
+* ``stderr``: The complete error output from the command, if any.
+
+Sometimes it is useful to suppress the output a command would typically generate. This may be because it is never relevant, or in order to support a low-verbosity mode for the task, or because the task wishes to process the output before displaying or otherwise acting on it. This is supported by passing the optional ``no_output=True`` flag when calling the method:
+
+.. code-block:: python
+
+    self.cli('echo "hello"', no_output=True)
+
 
 .. _class_tasks_settings:
 
