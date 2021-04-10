@@ -93,6 +93,11 @@ The following example attempts to execute the ``build`` task if it has been defi
 
             # ...
 
+Halting execution
+-----------------
+
+If an error occurs and the execution of the task should be interrupted, simply raise :exc:`~jogger.exceptions.TaskError`. Any message passed to the exception will be written to the configured ``stderr`` stream and the task will be halted.
+
 
 .. _class_tasks_settings:
 
@@ -105,7 +110,7 @@ If your project :doc:`defines a config file <config>`, and it contains a section
 
     The attribute itself is a *dictionary-like* collection of the settings listed in the config file, but it is **not** a true dictionary. See an explanation of the differences in the :ref:`config file documentation <config_task_settings>`.
 
-Re-working the above example so that the use of `coverage.py <https://coverage.readthedocs.io/>`_ is based on a project-level setting might look like:
+Re-working the above example of the ``test`` task so that the use of `coverage.py <https://coverage.readthedocs.io/>`_ is based on a project-level setting might look like:
 
 .. code-block:: ini
 

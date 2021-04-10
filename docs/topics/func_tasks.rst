@@ -44,6 +44,11 @@ Like tasks :doc:`defined as strings <string_tasks>`, tasks defined as functions 
     jog test  # good
     jog test myproject.tests.test_module  # bad
 
+Halting execution
+-----------------
+
+If an error occurs and the execution of the task should be interrupted, simply raise :exc:`~jogger.exceptions.TaskError`. Any message passed to the exception will be written to the configured ``stderr`` stream and the task will be halted.
+
 
 .. _func_tasks_settings:
 
