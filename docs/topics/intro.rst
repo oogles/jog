@@ -6,7 +6,9 @@ Getting Started
 Installation
 ============
 
-TODO
+Install the latest stable version from PyPI::
+
+    pip install task-jogger
 
 
 Quick start
