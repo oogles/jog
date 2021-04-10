@@ -19,11 +19,11 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'jogger'
-copyright = '2020, Alex Church'
+copyright = '2021, Alex Church'
 author = 'Alex Church'
 
 # The full version, including alpha/beta/rc tags
-release = '1.0.0'
+release = '0.1.0'
 
 
 # -- General configuration ---------------------------------------------------
