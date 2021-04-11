@@ -49,7 +49,7 @@ class UpdateTask(Task):
         
         self.stdout.write('Checking for updates', style='label')
         
-        result = self.cli('git log --oneline origin master..master | wc -l', no_output=True)
+        result = self.cli('git log --oneline origin master..master | wc -l', capture=False)
         
         if result.returncode:
             sys.exit(1)
@@ -96,7 +96,7 @@ class UpdateTask(Task):
         
         # Check for dependency updates by diffing the stored requirements.txt
         # file with the one just pulled in
-        diff_result = self.cli(f'diff -U 0 {temp_requirements_path} {requirements_path}', no_output=True)
+        diff_result = self.cli(f'diff -U 0 {temp_requirements_path} {requirements_path}', capture=True)
         
         if not diff_result.returncode:
             self.stdout.write('No changes detected')
@@ -148,7 +148,7 @@ class UpdateTask(Task):
             "| grep -v 'no migrations' "
             "| grep -Pv '^[a-zA-Z0-9_]+(?=\Z|\n[a-zA-Z_])'"  # noqa W605
         )
-        list_result = self.cli(cmd, no_output=True)
+        list_result = self.cli(cmd, capture=True)
         
         if list_result.returncode:
             raise TaskError('Migration check failed')

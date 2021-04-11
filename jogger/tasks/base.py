@@ -26,24 +26,29 @@ class Task:
     
     help = ''
     
-    def __init__(self, name, settings, argv):
+    def __init__(self, name, settings, argv, stdout, stderr):
         
         self.settings = settings
         
-        parser = self.create_parser(name)
+        parser = self.create_parser(name, stdout, stderr)
         options = parser.parse_args(argv)
         
         kwargs = vars(options)
         
+        stdout = kwargs['stdout']
+        stderr = kwargs['stderr']
         no_color = kwargs['no_color']
-        self.stdout = OutputWrapper(kwargs['stdout'], no_color=no_color)
-        self.stderr = OutputWrapper(kwargs['stderr'], no_color=no_color, default_style='error')
+        self.stdout = OutputWrapper(stdout, no_color=no_color)
+        self.stderr = OutputWrapper(stderr, no_color=no_color, default_style='error')
         self.styler = self.stdout.styler
+        
+        self.using_system_out = stdout.name == '<stdout>'
+        self.using_system_err = stderr.name == '<stderr>'
         
         self.args = kwargs.pop('args', ())
         self.kwargs = kwargs
     
-    def create_parser(self, name):
+    def create_parser(self, name, default_stdout, default_stderr):
         """
         Create and return the ``ArgumentParser`` which will be used to parse
         the arguments to this task.
@@ -66,14 +71,14 @@ class Task:
             '--stdout',
             nargs='?',
             type=argparse.FileType('w'),
-            default=sys.stdout
+            default=default_stdout
         )
         
         parser.add_argument(
             '--stderr',
             nargs='?',
             type=argparse.FileType('w'),
-            default=sys.stderr
+            default=default_stderr
         )
         
         parser.add_argument(
@@ -95,54 +100,30 @@ class Task:
         # Do nothing - just a hook for subclasses to add custom arguments
         pass
     
-    def cli(self, cmd, no_output=False):
+    def cli(self, cmd, capture=False):
         """
         Run a command on the system's command line, in the context of the task's
-        :attr:`~Task.stdout` and :attr:`~Task.stderr` output streams. If
-        ``no_output`` is ``True``, suppress standard output (errors are still
-        displayed).
+        :attr:`~Task.stdout` and :attr:`~Task.stderr` output streams. Output
+        can be captured rather than displayed using ``capture=True``.
         
         :param cmd: The command string to execute.
-        :param no_output: ``True`` to suppress standard output from the command.
+        :param capture: ``True`` to capture all output from the command rather
+            than writing it to the configured output streams.
         :return: The command result object.
         """
         
-        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
-        # Display the output of the command unless instructed to suppress it
-        if not no_output:
-            self.stdout.write(result.stdout.decode('utf-8'), ending=None)
-        
-        # Display any errors regardless
-        self.stderr.write(result.stderr.decode('utf-8'), ending=None)
-        
-        return result
-    
-    def _get_task_proxy_args(self, args):
-        
-        args = list(args)
-        
-        if '-v' not in args and '--verbosity' not in args:
-            args.extend(('--verbosity', str(self.kwargs['verbosity'])))
-        
-        if '--stdout' not in args:
-            stdout = self.kwargs['stdout'].name
+        kwargs = {}
+        if capture:
+            kwargs['capture_output'] = True
+        else:
+            # Pass redirected output streams if necessary
+            if not self.using_system_out:
+                kwargs['stdout'] = self.kwargs['stdout']
             
-            # Only pass the argument if not using the standard system output stream
-            if stdout != '<stdout>':
-                args.extend(('--stdout', stdout))
+            if not self.using_system_err:
+                kwargs['stderr'] = self.kwargs['stderr']
         
-        if '--stderr' not in args:
-            stderr = self.kwargs['stderr'].name
-            
-            # Only pass the argument if not using the standard system error stream
-            if stderr != '<stderr>':
-                args.extend(('--stderr', stderr))
-        
-        if '--no-color' not in args and self.kwargs['no_color']:
-            args.append('--no-color')
-        
-        return args
+        return subprocess.run(cmd, shell=True, **kwargs)
     
     def get_task_proxy(self, task_name, *args):
         """
@@ -181,7 +162,15 @@ class Task:
         if proxy.has_own_args:
             # The target task is also class-based, so common arguments of the
             # source task can be propagated, if not provided explicitly
-            proxy.argv = self._get_task_proxy_args(args)
+            args = list(args)
+            
+            if '-v' not in args and '--verbosity' not in args:
+                args.extend(('--verbosity', str(self.kwargs['verbosity'])))
+            
+            if '--no-color' not in args and self.kwargs['no_color']:
+                args.append('--no-color')
+            
+            proxy.argv = args
         elif args:
             raise TaskError('String- and function-based tasks do not accept arguments.')
         
@@ -317,5 +306,16 @@ class TaskProxy:
     def execute_class(self):
         
         settings = get_task_settings(self.name)
-        t = self.task(self.prog, settings, self.argv)
+        
+        # Don't pass through the OutputWrapper instances themselves, just the
+        # stream they wrap. The Task instance will create its own OutputWrapper
+        # around it, potentially with a different configuration (depending on
+        # arguments such as --no-color). But passing through the underlying
+        # streams allows reusing them, which is particularly important when
+        # calling nested tasks with streams redirected to files, so they append
+        # to the same file rather than overwriting each other.
+        stdout = self.stdout._out
+        stderr = self.stderr._out
+        
+        t = self.task(self.prog, settings, self.argv, stdout, stderr)
         t.execute()
