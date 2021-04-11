@@ -49,7 +49,7 @@ class UpdateTask(Task):
         
         self.stdout.write('Checking for updates', style='label')
         
-        result = self.cli('git log --oneline origin master..master | wc -l', capture=False)
+        result = self.cli('git log --oneline origin master..master | wc -l', capture=True)
         
         if result.returncode:
             sys.exit(1)
