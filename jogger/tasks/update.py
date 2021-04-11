@@ -146,15 +146,17 @@ class UpdateTask(Task):
             "python manage.py showmigrations --list "
             "| grep -v '\[X\]' "  # noqa W605
             "| grep -v 'no migrations' "
-            "| grep -Pv '^[a-zA-Z0-9_]+(?=\Z|\n[a-zA-Z_])'"  # noqa W605
+            "| grep -Pv '^[a-zA-Z0-9_]+(?=\Z|\\n[a-zA-Z_])'"  # noqa W605
         )
+        
         list_result = self.cli(cmd, capture=True)
         
-        if list_result.returncode:
+        if list_result.stderr:
+            self.stderr.write(list_result.stderr.decode('utf-8'))
             raise TaskError('Migration check failed')
         
         list_output = list_result.stdout.decode('utf-8')
-        if list_output:
+        if not list_output:
             self.stdout.write('No changes detected')
             return
         
@@ -170,7 +172,7 @@ class UpdateTask(Task):
         if answer.lower() == 'y':
             self.cli('python manage.py migrate')
         elif answer.lower() == 'n':
-            self.stdout.write('Migrations skipped')
+            self.stdout.write('Migrations skipped', style='warning')
         else:
             # User didn't answer yes OR no, display an error message but
             # don't interrupt execution
