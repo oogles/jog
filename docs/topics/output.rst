@@ -77,7 +77,7 @@ Sometimes you just want a segment of an output message to have a particular styl
     # Function-based task
     def my_task(settings, stdout, stderr):
 
-        name = stdout.style.label('World')
+        name = stdout.styler.label('World')
         stdout.write(f'Hello, {name}!')
 
     # Class-based task
@@ -85,7 +85,7 @@ Sometimes you just want a segment of an output message to have a particular styl
 
         def handle(self, *args, **options):
 
-            name = self.style.label('World')
+            name = self.styler.label('World')
             self.stdout.write(f'Hello, {name}!')
 
 These instances of the :class:`Styler` class have methods corresponding to each of the default roles described above: ``success()``, ``error()``, ``warning()``, ``info()``, ``debug()``, ``heading()``, and ``label()``.
@@ -104,7 +104,7 @@ For simple, one-off styles, it's easy to just apply the style manually. This can
     # Function-based task
     def my_task(settings, stdout, stderr):
 
-        name = stdout.style.apply('World', fg='blue', options=('bold', ))
+        name = stdout.styler.apply('World', fg='blue', options=('bold', ))
         stdout.write(f'Hello, {name}!')
 
     # Class-based task
@@ -112,7 +112,7 @@ For simple, one-off styles, it's easy to just apply the style manually. This can
 
         def handle(self, *args, **options):
 
-            error = self.style.apply('Uh-oh', fg='magenta', options=('bold', 'blink'))
+            error = self.styler.apply('Uh-oh', fg='magenta', options=('bold', 'blink'))
             self.stderr.write(error)
 
 See the :meth:`~Styler.apply` method for details on its accepted arguments and the supported options for each.

@@ -122,7 +122,3 @@ Executed with no arguments, ``jog`` will display a list of all available tasks. 
     function: A task defined as a function.
     class: A task defined as a class.
         See "jog class --help" for usage details
-
-.. note::
-
-    By default, the ``jog.py`` file can be located up to eight levels above the directory from which the ``jog`` command is run.
