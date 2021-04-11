@@ -67,17 +67,22 @@ class Task:
             help='Verbosity level; 0=minimal output, 1=normal output, 2=verbose output, 3=very verbose output'
         )
         
+        # Use line buffering. Might not be the best for performance, but
+        # important when redirecting output to a file so that output from the
+        # task itself (i.e. self.stdout.write()) and output from any executed
+        # commands (e.g. self.cli()) is written to the file in the correct order.
         parser.add_argument(
             '--stdout',
             nargs='?',
-            type=argparse.FileType('w'),
+            type=argparse.FileType('w', bufsize=1),
             default=default_stdout
         )
         
+        # Use line buffering. See comment on --stdout for details.
         parser.add_argument(
             '--stderr',
             nargs='?',
-            type=argparse.FileType('w'),
+            type=argparse.FileType('w', bufsize=1),
             default=default_stderr
         )
         
