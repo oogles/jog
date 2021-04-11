@@ -173,11 +173,11 @@ class TestTask(Task):
         
         html_report_path = os.path.abspath('htmlcov/index.html')
         if os.path.exists(html_report_path):
-            html_report_path = f'file://{html_report_path}'
+            html_report_path = f'View the report at: file://{html_report_path}'
         else:
-            html_report_path = f'Location of HTML report unknown, expected {html_report_path}'
+            html_report_path = f'Location of HTML report unknown, expected: {html_report_path}'
         
-        self.stdout.write(f'Done: {html_report_path}')
+        self.stdout.write(f'Done. {html_report_path}')
     
     def handle(self, *args, **options):
         
@@ -209,6 +209,7 @@ class TestTask(Task):
         elif not options['accumulate'] and not options['quick']:
             self.do_summary(**options)
             self.do_html_report(**options)
+            self.stdout.write('')  # newline
     
     def cli(self, *args, **kwargs):
         
