@@ -143,7 +143,7 @@ class UpdateTask(Task):
         # W605 (invalid escape sequence) is ignored because they *are* valid
         # escape sequences, just not used in a Python-based regex operation.
         cmd = (
-            "/opt/app/ln/virtualenv/bin/python manage.py showmigrations --list "
+            "python manage.py showmigrations --list "
             "| grep -v '\[X\]' "  # noqa W605
             "| grep -v 'no migrations' "
             "| grep -Pv '^[a-zA-Z0-9_]+(?=\Z|\n[a-zA-Z_])'"  # noqa W605

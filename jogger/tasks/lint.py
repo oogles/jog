@@ -239,12 +239,7 @@ class LintTask(Task):
         if HAS_DJANGO:
             self.stdout.write('Checking for missing migrations...', style='label')
             
-            try:
-                call_command('makemigrations', dry_run=True, check=True, stdout=self.stdout, stderr=self.stderr)
-            except SystemExit:
-                result = False
-            else:
-                result = True
+            result = self.cli('python manage.py makemigrations --dry-run --check')
             
-            self.outcomes['migrations'] = result
+            self.outcomes['migrations'] = result.returncode == 0
             self.stdout.write('')  # newline

@@ -117,9 +117,17 @@ class TestTask(Task):
         
         return f'coverage run --branch{source}{accumulate} '
     
-    def get_test_command(self, labels, quick, verbosity, extra, **options):
+    def get_test_command(self, labels, coverage, quick, verbosity, extra, **options):
         
-        command = ['python -Wa manage.py test']
+        command = []
+        
+        if not coverage:
+            # Run with warnings enabled, unless the command will be run by
+            # coverage (which expects a python script to run, not the `python`
+            # program)
+            command.append('python -Wa')
+        
+        command.append('manage.py test')
         command.extend(labels)
         
         # Pass all "extra" arguments, and the verbosity level, through to the
@@ -186,7 +194,7 @@ class TestTask(Task):
         if not reports_only:
             test_paths = options.pop('paths', None)
             coverage_command = self.get_coverage_command(**options)
-            test_command = self.get_test_command(test_paths, **options)
+            test_command = self.get_test_command(test_paths, coverage=bool(coverage_command), **options)
             
             self.cli(f'{coverage_command}{test_command}')
         
