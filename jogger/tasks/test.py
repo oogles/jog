@@ -168,7 +168,7 @@ class TestTask(Task):
         if not html_report:
             return
         
-        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'), ending=None)
+        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'))
         self.cli('coverage html')
         
         html_report_path = os.path.abspath('htmlcov/index.html')
@@ -177,7 +177,7 @@ class TestTask(Task):
         else:
             html_report_path = f'Location of HTML report unknown, expected {html_report_path}'
         
-        self.stdout.write(f' done: {html_report_path}')
+        self.stdout.write(f'Done: {html_report_path}')
     
     def handle(self, *args, **options):
         
@@ -210,8 +210,8 @@ class TestTask(Task):
             self.do_summary(**options)
             self.do_html_report(**options)
     
-    def cli(self, cmd):
+    def cli(self, *args, **kwargs):
         
         self._has_output = True
         
-        return super().cli(cmd)
+        return super().cli(*args, **kwargs)
