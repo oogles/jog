@@ -37,6 +37,13 @@ class Task:
         
         stdout = kwargs['stdout']
         stderr = kwargs['stderr']
+        
+        if stdout.name == stderr.name:
+            # The two streams are redirected to the same location, use the same
+            # handle for each so they don't write over the top of each other
+            stderr.close()
+            kwargs['stderr'] = stderr = stdout
+        
         no_color = kwargs['no_color']
         self.stdout = OutputWrapper(stdout, no_color=no_color)
         self.stderr = OutputWrapper(stderr, no_color=no_color, default_style='error')
