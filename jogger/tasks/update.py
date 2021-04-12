@@ -52,7 +52,7 @@ class UpdateTask(Task):
         result = self.cli('git log --oneline origin master..master | wc -l', capture=True)
         
         if result.returncode:
-            sys.exit(1)
+            raise TaskError('Update check failed')
         
         update_count = int(result.stdout)
         if not update_count:
@@ -88,7 +88,7 @@ class UpdateTask(Task):
         
         if result.returncode:
             # Stop script here if the pull was not successful for any reason
-            raise TaskError('Pull errored/aborted')
+            raise TaskError('Pull failed')
     
     def do_dependency_check(self, requirements_path, temp_requirements_path):
         
@@ -117,12 +117,14 @@ class UpdateTask(Task):
         
         if answer.lower() == 'y':
             install_result = self.cli(f'pip install -r {requirements_path}')
-            if not install_result.returncode:
-                # Make a copy of the now-applied requirements.txt to compare
-                # next time the task is run
-                shutil.copy(requirements_path, temp_requirements_path)
+            if install_result.returncode:
+                raise TaskError('Dependency install failed')
+            
+            # Make a copy of the now-applied requirements.txt to compare
+            # next time the task is run
+            shutil.copy(requirements_path, temp_requirements_path)
         elif answer.lower() == 'n':
-            self.stdout.write('Dependency update skipped')
+            self.stdout.write('Dependency update skipped', style='warning')
         else:
             # User didn't answer yes OR no, display an error message but
             # don't interrupt execution
@@ -170,7 +172,9 @@ class UpdateTask(Task):
             answer = input('The above migrations are unapplied, apply them now (Y/n)? ')
         
         if answer.lower() == 'y':
-            self.cli('python manage.py migrate')
+            migrate_result = self.cli('python manage.py migrate')
+            if migrate_result.returncode:
+                raise TaskError('Migration failed')
         elif answer.lower() == 'n':
             self.stdout.write('Migrations skipped', style='warning')
         else:
@@ -209,7 +213,9 @@ class UpdateTask(Task):
         if self.kwargs['no_input']:
             cmd = f'{cmd} --no-input'
         
-        self.cli(cmd)
+        result = self.cli(cmd)
+        if result.returncode:
+            raise TaskError('Static file collection failed')
     
     def do_restart(self):
         
