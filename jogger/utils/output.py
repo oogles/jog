@@ -45,6 +45,7 @@ class Styler:
     """
     
     PALETTE = {
+        'normal': {},
         'success': {'fg': 'green', 'options': ('bold', )},
         'error': {'fg': 'red', 'options': ('bold', )},
         'warning': {'fg': 'yellow', 'options': ('bold', )},
