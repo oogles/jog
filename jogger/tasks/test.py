@@ -88,12 +88,35 @@ class TestTask(Task):
             '--src',
             default='',
             dest='source',
-            help=(
-                'Specify the source to measure the coverage of.'
-            )
+            help='Specify the source to measure the coverage of.'
+        )
+        
+        parser.add_argument(
+            '--no-cover',
+            action='store_true',
+            dest='no_cover',
+            help='Run tests without any code coverage analysis.'
         )
         
         parser.add_argument('extra', nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
+    
+    def verify_arguments(self, options):
+        
+        if options['reports_only']:
+            if options['quick']:
+                raise TaskError('-q/--quick and --report are mutually exclusive.')
+            elif options['accumulate']:
+                raise TaskError('-a and --report are mutually exclusive.')
+        
+        if options['no_cover']:
+            if options['accumulate']:
+                raise TaskError('-a and --no-cover are mutually exclusive.')
+            elif options['reports_only']:
+                raise TaskError('--report and --no-cover are mutually exclusive.')
+            elif not options['html_report']:
+                raise TaskError('--no-html and --no-cover are mutually exclusive.')
+            elif options['source']:
+                raise TaskError('--src and --no-cover are mutually exclusive.')
     
     @property
     def section_prefix(self):
@@ -105,9 +128,9 @@ class TestTask(Task):
         
         return ''
     
-    def get_coverage_command(self, test_paths, quick, source, accumulate, **options):
+    def get_coverage_command(self, test_paths, no_cover, quick, source, accumulate, **options):
         
-        if not HAS_COVERAGE or quick:
+        if not HAS_COVERAGE or no_cover or quick:
             return ''
         
         if source:
@@ -191,17 +214,14 @@ class TestTask(Task):
     
     def handle(self, *args, **options):
         
-        reports_only = options['reports_only']
-        if reports_only:
-            if options['quick']:
-                raise TaskError('-q/--quick and --report are mutually exclusive.')
-            elif options['accumulate']:
-                raise TaskError('-a and --report are mutually exclusive.')
-        
         if not HAS_DJANGO:
             raise TaskError('Django not detected.')
         
+        self.verify_arguments(options)
+        
+        reports_only = options['reports_only']
         tests_passed = True
+        
         if not reports_only:
             test_paths = options.pop('paths', None)
             coverage_command = self.get_coverage_command(test_paths, **options)
@@ -218,7 +238,7 @@ class TestTask(Task):
                 self.stdout.write(msg, style='warning')
             else:
                 raise TaskError(msg)
-        elif not options['accumulate'] and not options['quick']:
+        elif not options['no_cover'] and not options['accumulate'] and not options['quick']:
             if not tests_passed:
                 self.stdout.write('Tests failed, coverage reports skipped.')
             else:
