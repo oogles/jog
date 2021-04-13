@@ -117,11 +117,11 @@ class TestTask(Task):
         
         return f'coverage run --branch{source}{accumulate} '
     
-    def get_test_command(self, labels, coverage, quick, verbosity, extra, **options):
+    def get_test_command(self, labels, using_coverage, quick, verbosity, extra, **options):
         
         command = []
         
-        if not coverage:
+        if not using_coverage:
             # Run with warnings enabled, unless the command will be run by
             # coverage (which expects a python script to run, not the `python`
             # program)
@@ -191,25 +191,30 @@ class TestTask(Task):
         if not HAS_DJANGO:
             raise TaskError('Django not detected.')
         
+        tests_passed = True
         if not reports_only:
             test_paths = options.pop('paths', None)
             coverage_command = self.get_coverage_command(**options)
             test_command = self.get_test_command(test_paths, coverage=bool(coverage_command), **options)
             
-            self.cli(f'{coverage_command}{test_command}')
+            result = self.cli(f'{coverage_command}{test_command}')
+            tests_passed = result.returncode == 0
         
         if not HAS_COVERAGE:
             # Not having coverage available is simply a warning unless directly
             # requesting coverage reports, in which case it is an error
             msg = 'Code coverage not available: coverage.py not detected'
             if not reports_only:
-                self.stdout.write(self.styler.warning(msg))
+                self.stdout.write(msg, style='warning')
             else:
                 raise TaskError(msg)
         elif not options['accumulate'] and not options['quick']:
-            self.do_summary(**options)
-            self.do_html_report(**options)
-            self.stdout.write('')  # newline
+            if not tests_passed:
+                self.stdout.write('Tests failed, coverage reports skipped.')
+            else:
+                self.do_summary(**options)
+                self.do_html_report(**options)
+                self.stdout.write('')  # newline
     
     def cli(self, *args, **kwargs):
         
