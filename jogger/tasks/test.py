@@ -105,19 +105,29 @@ class TestTask(Task):
         
         return ''
     
-    def get_coverage_command(self, quick, source, accumulate, **options):
+    def get_coverage_command(self, test_paths, quick, source, accumulate, **options):
         
         if not HAS_COVERAGE or quick:
             return ''
         
         if source:
             source = f' --source {source}'
+        elif test_paths:
+            truncated_paths = set()
+            for path in test_paths:
+                # Every valid path will contain a "tests" segment, be it a
+                # directory or a tests.py file. Truncate the path to everything
+                # BEFORE that segment, and strip trailing dots.
+                truncated_paths.add(path.split('tests')[0].strip('.'))
+            
+            truncated_paths = ','.join(truncated_paths)
+            source = f' --source {truncated_paths}'
         
         accumulate = ' -a' if accumulate else ''
         
         return f'coverage run --branch{source}{accumulate} '
     
-    def get_test_command(self, labels, using_coverage, quick, verbosity, extra, **options):
+    def get_test_command(self, test_paths, using_coverage, quick, verbosity, extra, **options):
         
         command = []
         
@@ -128,7 +138,7 @@ class TestTask(Task):
             command.append('python -Wa')
         
         command.append('manage.py test')
-        command.extend(labels)
+        command.extend(test_paths)
         
         # Pass all "extra" arguments, and the verbosity level, through to the
         # test command
@@ -194,8 +204,8 @@ class TestTask(Task):
         tests_passed = True
         if not reports_only:
             test_paths = options.pop('paths', None)
-            coverage_command = self.get_coverage_command(**options)
-            test_command = self.get_test_command(test_paths, coverage=bool(coverage_command), **options)
+            coverage_command = self.get_coverage_command(test_paths, **options)
+            test_command = self.get_test_command(test_paths, using_coverage=bool(coverage_command), **options)
             
             result = self.cli(f'{coverage_command}{test_command}')
             tests_passed = result.returncode == 0
