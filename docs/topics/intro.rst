@@ -121,4 +121,4 @@ Executed with no arguments, ``jog`` will display a list of all available tasks. 
 
 .. note::
 
-    By default, the ``jog.py`` file can be located up to eight levels above the directory from which the ``jog`` command is run.
+    By default, the ``jog`` command will search for a ``jog.py`` file up to eight levels above the directory from which it is run.
