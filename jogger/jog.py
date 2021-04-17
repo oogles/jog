@@ -4,7 +4,7 @@ import sys
 from jogger import __version__ as version
 from jogger.exceptions import TaskDefinitionError
 from jogger.tasks.base import TaskProxy
-from jogger.utils.input import JOG_FILE_NAME, get_tasks
+from jogger.utils.input import JOG_FILE_NAME, JogConf
 from jogger.utils.output import OutputWrapper
 
 
@@ -49,9 +49,10 @@ def main(argv=None):
     stderr = OutputWrapper(sys.stderr, default_style='error')
     
     try:
-        tasks = get_tasks()
+        conf = JogConf()
+        tasks = conf.get_tasks()
         for name, task in tasks.items():
-            tasks[name] = TaskProxy(prog, name, task, stdout, stderr, arguments.extra)
+            tasks[name] = TaskProxy(prog, name, task, conf, stdout, stderr, arguments.extra)
     except (FileNotFoundError, TaskDefinitionError) as e:
         stderr.write(str(e))
         sys.exit(1)

@@ -1,7 +1,5 @@
 import os
 
-from jogger.utils.input import JOG_FILE_NAME, find_config_file
-
 from .base import Task, TaskError
 
 try:
@@ -41,10 +39,9 @@ class DocsTask(Task):
         if not HAS_SPHINX:
             raise TaskError('Sphinx not detected.')
         
-        # Get the project directory by locating the task file (jog.py). Assume
-        # a "docs" directory under that.
-        project_dir = os.path.dirname(find_config_file(JOG_FILE_NAME))
-        docs_dir = os.path.join(project_dir, 'docs')
+        # Assume a "docs" directory under the project directory - determined
+        # as the directory containing the task definition file (`jog.py`)
+        docs_dir = os.path.join(self.project_dir, 'docs')
         
         if not os.path.exists(docs_dir):
             raise TaskError(f'Documentation directory not found at {docs_dir}.')

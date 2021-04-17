@@ -2,8 +2,6 @@ import os
 import shutil
 import sys
 
-from jogger.utils.input import JOG_FILE_NAME, find_config_file
-
 from .base import Task, TaskDefinitionError, TaskError
 
 
@@ -63,8 +61,7 @@ class UpdateTask(Task):
     
     def check_initial_requirements(self):
         
-        # Get the project directory by locating the task file (jog.py)
-        project_dir = os.path.dirname(find_config_file(JOG_FILE_NAME))
+        project_dir = self.project_dir
         project_name = os.path.split(project_dir)[1].replace('-', '_')
         
         requirements_path = os.path.join(project_dir, 'requirements.txt')

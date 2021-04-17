@@ -12,69 +12,68 @@ CONFIG_FILE_NAME = 'setup.cfg'
 CONFIG_BLOCK_PREFIX = 'jogger'
 
 
-def find_config_file(target_file_name):
+class JogConf:
     """
-    Search upwards from the current working directory looking for a config file
-    named ``target_file_name``. The number of parent directories to search
-    through is controlled by ``MAX_CONFIG_FILE_SEARCH_DEPTH``.
+    Entry point to all configuration files for ``jogger``.
     
-    :param target_file_name: The filename of the target file.
-    :return: The absolute path of the located file.
-    """
+    Instantiation initiates an upward search from the current working directory
+    looking for the task definition file (``JOG_FILE_NAME``). The file can be
+    up to a maximum of ``MAX_CONFIG_FILE_SEARCH_DEPTH`` directories higher. If
+    not found, raise ``FileNotFoundError`` - the project must contain this
+    file in order to use ``jogger``.
     
-    path = os.getcwd()
-    
-    return find_file(target_file_name, path, MAX_CONFIG_FILE_SEARCH_DEPTH)
-
-
-def get_tasks():
-    """
-    Search upwards from the current working directory looking for the task
-    definition file (``JOG_FILE_NAME``). Import the file as a Python module
-    and return its inner ``tasks`` dictionary. Raise ``TaskDefinitionError``
-    if no ``tasks`` dictionary is defined in the imported module.
-    
-    :return: The task definition file's dictionary of tasks.
+    The location of the task definition file dictates the "project directory"
+    for the purposes of ``jogger``, and any other config files must also appear
+    under the same directory.
     """
     
-    jog_file = find_config_file(JOG_FILE_NAME)
+    def __init__(self):
+        
+        path = os.getcwd()
+        
+        jog_file_path = find_file(JOG_FILE_NAME, path, MAX_CONFIG_FILE_SEARCH_DEPTH)
+        project_dir = os.path.dirname(jog_file_path)
+        
+        self.project_dir = project_dir
+        self.jog_file_path = jog_file_path
+        self.config_file_path = os.path.join(project_dir, CONFIG_FILE_NAME)
     
-    spec = spec_from_file_location('jog', jog_file)
-    jog_file = module_from_spec(spec)
-    spec.loader.exec_module(jog_file)
+    def get_tasks(self):
+        """
+        Import the located task definition file as a Python module and return
+        its inner ``tasks`` dictionary. Raise ``TaskDefinitionError`` if no
+        ``tasks`` dictionary is defined in the imported module.
+        
+        :return: The task definition file's dictionary of tasks.
+        """
+        
+        spec = spec_from_file_location('jog', self.jog_file_path)
+        jog_file = module_from_spec(spec)
+        spec.loader.exec_module(jog_file)
+        
+        try:
+            return jog_file.tasks
+        except AttributeError:
+            raise TaskDefinitionError(f'No tasks dictionary defined in {JOG_FILE_NAME}.')
     
-    try:
-        return jog_file.tasks
-    except AttributeError:
-        raise TaskDefinitionError(f'No tasks dictionary defined in {JOG_FILE_NAME}.')
-
-
-def get_task_settings(task_name):
-    """
-    Search upwards from the current working directory looking for the project
-    config file (``CONFIG_FILE_NAME``). Parse the file and return the section
-    corresponding to ``task_name``. If no such section exists, return an empty
-    section.
-    
-    :return: The config file section, as a ``configparser.SectionProxy`` object,
-        for the given task.
-    """
-    
-    config_file = configparser.ConfigParser()
-    
-    try:
-        config_file_path = find_config_file(CONFIG_FILE_NAME)
-    except FileNotFoundError:
-        # Silently ignore non-existent settings files, they are not mandatory
-        pass
-    else:
-        config_file.read(config_file_path)
-    
-    section = f'{CONFIG_BLOCK_PREFIX}:{task_name}'
-    
-    # If the section does not exist, add a dummy one. This allows this method
-    # to always return a value of a consistent type.
-    if not config_file.has_section(section):
-        config_file.add_section(section)
-    
-    return config_file[section]
+    def get_task_settings(self, task_name):
+        """
+        Locate any config file/s in the project directory, parse the file/s and
+        return a collection of the settings corresponding to ``task_name``. If
+        no such section exists, return an empty collection.
+        
+        :return: The settings collection for the given task, as a
+            ``configparser.SectionProxy`` object.
+        """
+        
+        config_file = configparser.ConfigParser()
+        config_file.read(self.config_file_path)
+        
+        section = f'{CONFIG_BLOCK_PREFIX}:{task_name}'
+        
+        # If the section does not exist, add a dummy one. This allows this
+        # method to always return a value of a consistent type.
+        if not config_file.has_section(section):
+            config_file.add_section(section)
+        
+        return config_file[section]

@@ -6,7 +6,6 @@ import sys
 from inspect import cleandoc
 
 from jogger.exceptions import TaskDefinitionError, TaskError
-from jogger.utils.input import get_task_settings, get_tasks
 from jogger.utils.output import OutputWrapper
 
 TASK_NAME_RE = re.compile(r'^\w+$')
@@ -26,11 +25,13 @@ class Task:
     
     help = ''
     
-    def __init__(self, name, settings, argv, stdout, stderr):
+    def __init__(self, prog, name, conf, argv, stdout, stderr):
         
-        self.settings = settings
+        self.name = name
+        self.conf = conf
+        self._settings = None
         
-        parser = self.create_parser(name, stdout, stderr)
+        parser = self.create_parser(prog, stdout, stderr)
         options = parser.parse_args(argv)
         
         kwargs = vars(options)
@@ -55,14 +56,14 @@ class Task:
         self.args = kwargs.pop('args', ())
         self.kwargs = kwargs
     
-    def create_parser(self, name, default_stdout, default_stderr):
+    def create_parser(self, prog, default_stdout, default_stderr):
         """
         Create and return the ``ArgumentParser`` which will be used to parse
         the arguments to this task.
         """
         
         parser = argparse.ArgumentParser(
-            prog=name,
+            prog=prog,
             description=self.help or None
         )
         
@@ -111,6 +112,19 @@ class Task:
         
         # Do nothing - just a hook for subclasses to add custom arguments
         pass
+    
+    @property
+    def project_dir(self):
+        
+        return self.conf.project_dir
+    
+    @property
+    def settings(self):
+        
+        if not self._settings:
+            self._settings = self.conf.get_task_settings(self.name)
+        
+        return self._settings
     
     def cli(self, cmd, capture=False):
         """
@@ -162,14 +176,14 @@ class Task:
         """
         
         try:
-            task = get_tasks()[task_name]
+            task = self.conf.get_tasks()[task_name]
         except FileNotFoundError as e:
             raise TaskDefinitionError(e)
         except KeyError:
             raise TaskDefinitionError(f'Unknown task "{task_name}".')
         
         # Get the proxy instance, allow raising TaskDefinitionError if necessary
-        proxy = TaskProxy('proxy.execute', task_name, task, self.stdout, self.stderr)
+        proxy = TaskProxy('proxy.execute', task_name, task, self.conf, self.stdout, self.stderr)
         
         if proxy.has_own_args:
             # The target task is also class-based, so common arguments of the
@@ -224,7 +238,7 @@ class TaskProxy:
         output streams, in addition to accepting its own custom arguments.
     """
     
-    def __init__(self, prog, name, task, stdout, stderr, argv=None):
+    def __init__(self, prog, name, task, conf, stdout, stderr, argv=None):
         
         try:
             valid_name = TASK_NAME_RE.match(name)
@@ -257,6 +271,7 @@ class TaskProxy:
         
         self.prog = f'{prog} {name}'
         self.name = name
+        self.conf = conf
         
         self.task = task
         self.argv = argv
@@ -312,12 +327,10 @@ class TaskProxy:
         
         self.parse_simple_args(self.help_text)
         
-        settings = get_task_settings(self.name)
+        settings = self.conf.get_task_settings(self.name)
         self.task(settings=settings, stdout=self.stdout, stderr=self.stderr)
     
     def execute_class(self):
-        
-        settings = get_task_settings(self.name)
         
         # Don't pass through the OutputWrapper instances themselves, just the
         # stream they wrap. The Task instance will create its own OutputWrapper
@@ -329,5 +342,5 @@ class TaskProxy:
         stdout = self.stdout._out
         stderr = self.stderr._out
         
-        t = self.task(self.prog, settings, self.argv, stdout, stderr)
+        t = self.task(self.prog, self.name, self.conf, self.argv, stdout, stderr)
         t.execute()
