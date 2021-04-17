@@ -48,7 +48,6 @@ class DocsTask(Task):
         
         if options['link_only']:
             show_link = True
-            output_prefix = ''
         else:
             command = [f'cd {docs_dir}']
             if options['full']:
@@ -58,15 +57,22 @@ class DocsTask(Task):
             
             result = self.cli(' && '.join(command))
             show_link = result.returncode == 0
-            output_prefix = '\n'
+            self.stdout.write('')  # blank line
         
         if show_link:
             index_path = os.path.join(docs_dir, '_build', 'html', 'index.html')
             if os.path.exists(index_path):
-                self.stdout.write(self.styler.label(
-                    f'{output_prefix}Generated documentation can be viewed at: file://{index_path}'
-                ))
+                self.stdout.write(f'Generated documentation index: {index_path}')
+                
+                index_url = f'file://{index_path}'
+                path_swap = self.settings.get('index_path_swap', None)
+                if path_swap:
+                    if '>' not in path_swap:
+                        raise TaskError('Invalid format for index_path_swap setting.')
+                    
+                    old_path, new_path = path_swap.split('>')
+                    index_url = index_url.replace(old_path.strip(), new_path.strip())
+                
+                self.stdout.write(f'View the documentation at: {self.styler.label(index_url)}')
             else:
-                self.stdout.write(self.styler.warning(
-                    f'{output_prefix}Generated documentation not found, expected at: {index_path}'
-                ))
+                self.stdout.write(f'Generated documentation index not found, expected: {index_path}', style='warning')

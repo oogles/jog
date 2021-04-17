@@ -202,16 +202,27 @@ class TestTask(Task):
         if not html_report:
             return
         
-        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'))
+        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'), ending=None)
         self.cli('coverage html')
+        
+        self.stdout.write(' done')
         
         html_report_path = os.path.abspath('htmlcov/index.html')
         if os.path.exists(html_report_path):
-            html_report_path = f'View the report at: file://{html_report_path}'
+            self.stdout.write(f'HTML report written to: {html_report_path}')
+            
+            html_report_url = f'file://{html_report_path}'
+            path_swap = self.settings.get('report_path_swap', None)
+            if path_swap:
+                if '>' not in path_swap:
+                    raise TaskError('Invalid format for report_path_swap setting.')
+                
+                old_path, new_path = path_swap.split('>')
+                html_report_url = html_report_url.replace(old_path.strip(), new_path.strip())
+            
+            self.stdout.write(f'View the report at: {self.styler.label(html_report_url)}')
         else:
-            html_report_path = f'Location of HTML report unknown, expected: {html_report_path}'
-        
-        self.stdout.write(f'Done. {html_report_path}')
+            self.stdout.write(f'Location of HTML report unknown, expected: {html_report_path}', style='warning')
     
     def handle(self, *args, **options):
         
