@@ -9,6 +9,7 @@ from .files import find_file
 MAX_CONFIG_FILE_SEARCH_DEPTH = 8
 JOG_FILE_NAME = 'jog.py'
 CONFIG_FILE_NAME = 'setup.cfg'
+ENV_CONFIG_FILE_NAME = 'joggerenv.cfg'
 CONFIG_BLOCK_PREFIX = 'jogger'
 
 
@@ -37,6 +38,7 @@ class JogConf:
         self.project_dir = project_dir
         self.jog_file_path = jog_file_path
         self.config_file_path = os.path.join(project_dir, CONFIG_FILE_NAME)
+        self.env_config_file_path = os.path.join(project_dir, ENV_CONFIG_FILE_NAME)
     
     def get_tasks(self):
         """
@@ -60,14 +62,14 @@ class JogConf:
         """
         Locate any config file/s in the project directory, parse the file/s and
         return a collection of the settings corresponding to ``task_name``. If
-        no such section exists, return an empty collection.
+        no such settings exist, return an empty collection.
         
         :return: The settings collection for the given task, as a
             ``configparser.SectionProxy`` object.
         """
         
         config_file = configparser.ConfigParser()
-        config_file.read(self.config_file_path)
+        config_file.read((self.config_file_path, self.env_config_file_path))
         
         section = f'{CONFIG_BLOCK_PREFIX}:{task_name}'
         
