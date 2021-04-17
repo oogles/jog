@@ -138,9 +138,10 @@ class TestTask(Task):
         elif test_paths:
             truncated_paths = set()
             for path in test_paths:
-                # Every valid path will contain a "tests" segment, be it a
-                # directory or a tests.py file. Truncate the path to everything
-                # BEFORE that segment, and strip trailing dots.
+                # If a path contains a "tests" segment (be it a directory or a
+                # test.py file), truncate that path to only what appears BEFORE
+                # that segment, and strip any trailing dots. If the path does
+                # not contain a "tests" segment, this will keep the whole path.
                 truncated_paths.add(path.split('tests')[0].strip('.'))
             
             truncated_paths = ','.join(truncated_paths)

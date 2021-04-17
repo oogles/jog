@@ -111,9 +111,13 @@ Runs the Django ``manage.py test`` command. Additionally, if `coverage.py <https
 It uses the following coverage.py commands:
 
 * ``coverage run --branch`` to execute the test suite with code coverage. Some additional arguments may be passed based on arguments passed to ``TestTask`` itself. See below for details on accepted arguments.
-* ``coverage report --skip-covered`` to generate the on-screen summary report if the verbosity level is less than ``2`` (the default).
+* ``coverage report --skip-covered`` to generate the on-screen summary report if the verbosity level is ``1`` (the default).
 * ``coverage report`` to generate the on-screen summary report if the verbosity level is ``2`` or more.
 * ``coverage html`` to generate the detailed HTML report.
+
+.. note::
+
+    The on-screen summary report will be skipped entirely if the verbosity level is less than ``1``.
 
 ``TestTask`` accepts several of its own arguments, detailed below, but also passes any additional arguments through to the underlying ``manage.py test`` command. Assuming the task has been given the name "test" in ``jog.py``, this means you can do any of the following::
 
@@ -154,6 +158,36 @@ Accumulating results
     jog test -a app2 --settings=test_settings
     jog test --report
 
+.. _builtins-test-noise:
+
+Reducing coverage noise
+-----------------------
+
+Sometimes, especially when running a subset of the full test suite, the coverage reports can contain a lot of noise in the form of files with low coverage scores because they are outside the scope of the tests. The presence of these extra files can make it more difficult to spot the missing coverage you're actually looking for.
+
+There are a number of ``coverage.py`` settings available to reduce this noise, as `covered in the documentation <https://coverage.readthedocs.io/en/stable/source.html>`_. ``TestTask`` supports the ``--source`` command-line argument via its own ``--src`` argument, but does not accept ``--include``/``--omit`` arguments. All options can still be set up via a suitable configuration file.
+
+If running a subset of the test suite, i.e. passing an explicit test path or paths, ``TestTask`` will make a best-guess at an explicit ``--source`` value to use. It won't always be perfect, but can at least help limit the number of completely unrelated files included in the coverage reports. The following describes how the value is chosen:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Command
+      - ``--source`` value
+    * - ``jog test myproject``
+      - ``myproject``
+    * - ``jog test myproject.myapp``
+      - ``myproject.myapp``
+    * - ``jog test myproject.myapp.tests``
+      - ``myproject.myapp``
+    * - ``jog test myproject.myapp.tests.test_things.MyThingTestCase``
+      - ``myproject.myapp``
+    * - ``jog test myproject.myapp1 myproject.myapp2``
+      - ``myproject.myapp1,myproject.myapp2``
+
+If no explicit test paths are passed, no attempt is made to automatically include the ``--source`` argument. If the ``TestTask`` argument ``--src`` is provided, it takes precedence.
+
+
 Arguments
 ---------
 
@@ -161,9 +195,10 @@ Arguments
 
 * ``-q``/``--quick``: Run a "quick" variant of the task: coverage analysis is skipped and the ``--parallel`` argument is passed to ``manage.py test``. See :ref:`builtins-test-quick`.
 * ``-a``: Accumulate coverage data across multiple runs (passed as the ``-a`` argument to the ``coverage run`` command). No coverage reports will be run automatically. See :ref:`builtins-test-accumulating`.
+* ``--src``: The source to measure the coverage of (passed as the ``--source`` argument to the ``coverage run`` command). See :ref:`builtins-test-noise`.
 * ``--report``: Skip the test suite and just generate the coverage reports. Useful to review previous results or if using ``-a`` to accumulate results.
 * ``--no-html``: Skip generating the detailed HTML code coverage report. The on-screen summary report will still be displayed.
-* ``--src``: The source to measure the coverage of (passed as the ``--source`` argument to the ``coverage run`` command).
+* ``--no-cover``: Run the test suite only. Skip all code coverage analysis and do not generate any coverage reports.
 
 .. note::
 

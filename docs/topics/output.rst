@@ -53,6 +53,7 @@ The simplest way to style the output from a task is to use the ``style`` argumen
 
 The value provided to the ``style`` argument must match a supported style "role". The following roles are supported:
 
+* ``'normal'``: plain text, no specific styles applied
 * ``'success'``: bold green text
 * ``'error'``: bold red text
 * ``'warning'``: bold yellow text
