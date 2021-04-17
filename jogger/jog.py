@@ -4,7 +4,7 @@ import sys
 from jogger import __version__ as version
 from jogger.exceptions import TaskDefinitionError
 from jogger.tasks.base import TaskProxy
-from jogger.utils.input import JOG_FILE_NAME, JogConf
+from jogger.utils.config import JOG_FILE_NAME, JogConf
 from jogger.utils.output import OutputWrapper
 
 
