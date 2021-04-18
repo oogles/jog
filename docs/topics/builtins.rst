@@ -82,7 +82,7 @@ These arguments can be chained to specify any subset of these options, e.g.::
 Settings
 --------
 
-The following is an example ``setup.cfg`` section containing all available config options and examples of their use. It assumes ``LintTask`` has been given the name "lint" in the ``jog.py`` file.
+The following is an example config file section containing all available config options and examples of their use. It assumes ``LintTask`` has been given the name "lint" in the ``jog.py`` file.
 
 .. code-block:: ini
 
@@ -187,6 +187,21 @@ If running a subset of the test suite, i.e. passing an explicit test path or pat
 
 If no explicit test paths are passed, no attempt is made to automatically include the ``--source`` argument. If the ``TestTask`` argument ``--src`` is provided, it takes precedence.
 
+Use with virtual machines
+-------------------------
+
+If ``TestTask`` generates a HTML coverage report, it also prints a ``file://`` URL to the index page of that report, allowing it to be quickly and easily opened for immediate viewing. However, if the task is running in a virtual machine or other virtual environment with its own file system, the ``file://`` link displayed will likely not be openable on the host machine.
+
+The ``report_path_swap`` setting can be used to correct this. As long as the generated document also exists on the host (i.e. it is generated on a path that is kept in sync between the host and guest file systems), this setting allows replacing the guest-specific portion of the ``file://`` URL with the equivalent host-specific value. It should use ``>`` as the delimiter to map the guest value to the host value:
+
+.. code-block:: ini
+
+    [jogger:test]
+    report_path_swap = /opt/app/src/ > /home/username/projectname/
+
+.. tip::
+
+    If multiple developers are working on a project, this setting will rarely be the same for everyone. This makes it a good candidate for an :doc:`environment-specific config file <config>`.
 
 Arguments
 ---------
@@ -207,12 +222,13 @@ Arguments
 Settings
 --------
 
-The following is an example ``setup.cfg`` section containing all available config options and examples of their use. It assumes ``TestTask`` has been given the name "test" in the ``jog.py`` file.
+The following is an example config file section containing all available config options and examples of their use. It assumes ``TestTask`` has been given the name "test" in the ``jog.py`` file.
 
 .. code-block:: ini
 
     [jogger:test]
     quick_parallel = false  # default: true
+    report_path_swap = /opt/app/src/ > /home/username/projectname/
 
 
 ``DocsTask``
@@ -225,6 +241,22 @@ The task assumes a documentation directory configured via `sphinx-quickstart <ht
 * ``make html`` (default)
 * ``make clean && make html`` if the ``-f``/``--full`` flag is provided
 
+Use with virtual machines
+-------------------------
+
+``DocsTask`` prints a ``file://`` URL to the index page of the documentation it generates, allowing it to be quickly and easily opened for immediate viewing. However, if the task is running in a virtual machine or other virtual environment with its own file system, the ``file://`` link displayed will likely not be openable on the host machine.
+
+The ``index_path_swap`` setting can be used to correct this. As long as the generated document also exists on the host (i.e. it is generated on a path that is kept in sync between the host and guest file systems), this setting allows replacing the guest-specific portion of the ``file://`` URL with the equivalent host-specific value. It should use ``>`` as the delimiter to map the guest value to the host value:
+
+.. code-block:: ini
+
+    [jogger:docs]
+    index_path_swap = /opt/app/src/ > /home/username/projectname/
+
+.. tip::
+
+    If multiple developers are working on a project, this setting will rarely be the same for everyone. This makes it a good candidate for an :doc:`environment-specific config file <config>`.
+
 Arguments
 ---------
 
@@ -232,3 +264,13 @@ Arguments
 
 * ``-f``/``--full``: Remove previously built documentation before rebuilding all pages from scratch.
 * ``-l``/``--link``: Skip building the documentation and just output the link to the previously built ``index.html`` file (if any).
+
+Settings
+--------
+
+The following is an example config file section containing all available config options and examples of their use. It assumes ``DocsTask`` has been given the name "docs" in the ``jog.py`` file.
+
+.. code-block:: ini
+
+    [jogger:docs]
+    index_path_swap = /opt/app/src/ > /home/username/projectname/

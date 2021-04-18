@@ -18,6 +18,10 @@ Tasks
 
             The settings-object is *dictionary-like*, but it is **not** a true dictionary. See an explanation of the differences in the :ref:`config file documentation <config_task_settings>`.
 
+    .. attribute:: project_dir
+
+        The absolute path to the project directory, as determined by the location of the ``jog.py`` file.
+
     .. attribute:: stdout
 
         A proxy for the stream to write general messages to, offering more control over output from the task. See :doc:`../topics/output` for details on writing to output proxies. Defaults to the system's ``stdout`` stream, but can be changed using the ``--stdout`` argument, e.g.:
