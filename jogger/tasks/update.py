@@ -14,6 +14,7 @@ class UpdateTask(Task):
     )
     
     temp_requirements_dir = '/tmp'
+    default_branch_name = 'main'
     
     def add_arguments(self, parser):
         
@@ -81,7 +82,10 @@ class UpdateTask(Task):
         
         self.stdout.write('\nPulling', style='label')
         
-        result = self.cli('git pull origin master --prune --no-rebase')
+        branch_name = self.settings.get('branch_name', self.default_branch_name)
+        cmd = f'git pull origin {branch_name} --prune --no-rebase'
+        
+        result = self.cli(cmd)
         
         if result.returncode:
             # Stop script here if the pull was not successful for any reason
