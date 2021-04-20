@@ -274,3 +274,76 @@ The following is an example config file section containing all available config 
 
     [jogger:docs]
     index_path_swap = /opt/app/src/ > /home/username/projectname/
+
+
+``UpdateTask``
+==============
+
+Designed to be run on a staging/production server, this is a simple "deployment" script that takes several steps to get the local environment up-to-date with changes in the ``origin`` repository. The steps include:
+
+1. Checking for new commits. If no new commits are found, the script exits.
+2. Pulling in the remote changes.
+3. Checking for updates to Python dependencies (via ``requirements.txt``). The newly pulled requirements file is compared to a copy taken the first time the command is run. If changes are detected, they are displayed to the user and a prompt to install them is shown. If they are installed, a new copy is taken of the requirements file for comparison on the next update. This step can have false positives/negatives if manual updates are performed in the interim (i.e. not using ``UpdateTask``).
+4. Checking for unapplied migrations. If any are found, they are displayed to the user and a prompt to apply them (via Django's ``migrate`` management command) is shown.
+5. Running Django's ``remove_stale_contenttypes`` management command to check for and prompt to remove any ``ContentType`` records whose corresponding models no longer exist in the source code.
+6. Running the ``jogger`` task named "build", if such a task exists. This allows individual projects to easily include any build steps in the process, while also allowing them to be run in isolation, without duplicating any logic. To enable this step, simply create a separate task and add it to ``jog.py`` with the name "build".
+7. Collecting static files via Django's ``collectstatic`` management command.
+8. Restarting any necessary services. This step does nothing by default. See :ref:`builtins-update-subclassing` below for details on using a subclass of ``UpdateTask`` to customise this step.
+
+.. _builtins-update-subclassing:
+
+Subclassing
+-----------
+
+Each step outlined above corresponds to a different method in the ``UpdateTask`` class. This allows subclasses to override individual steps as necessary. The methods are:
+
+* ``check_updates()``
+* ``do_pull()``
+* ``do_dependency_check()``
+* ``do_migration_check()``
+* ``do_stale_contenttypes_check()``
+* ``do_build()``
+* ``do_collect_static()``
+* ``do_restart()``
+
+This is particularly important for the final step, restarting services, as it does nothing by default. The following example shows a subclass overriding ``do_restart()`` and restarting the `gunicorn <https://gunicorn.org/>`_ service using `supervisord <https://supervisord.org/>`_:
+
+.. code-block:: python
+
+    from jogger.tasks import TaskError, UpdateTask
+
+
+    class CustomUpdateTask(UpdateTask):
+
+        def do_restart(self):
+
+            self.stdout.write('Restarting gunicorn', style='label')
+            result = self.cli('supervisorctl restart gunicorn')
+
+            if result.returncode:
+                raise TaskError('Restart failed')
+
+    tasks = {
+        'update': CustomUpdateTask
+    }
+
+.. _builtins-update-noinput:
+
+Running without prompts
+-----------------------
+
+By default, ``UpdateTask`` prompts the user before proceeding in several situations, including:
+
+* When changes to Python dependencies are detected
+* When unapplied migrations are detected
+* When stale content types are detected
+* When collecting static files
+
+If running as part of a larger script, or in any kind of automated setting, such prompts are usually unwanted. The ``--no-input`` argument can be used to skip these prompts. In most cases, this has the same affect as answering "yes" to the prompt, i.e. continuing with the action. However, the check for stale content types is *skipped entirely* when ``--no-input`` is used. Due to the possibility of other records being deleted along with the obsolete ``ContentType`` records, and therefore the potential for unexpected data loss, this step is only run when a user can review and manually confirm that the stale content types should be removed.
+
+Arguments
+---------
+
+``UpdateTask`` accepts the following arguments:
+
+* ``--no-input``: Run without prompting the user for input. See :ref:`builtins-update-noinput`.
