@@ -282,7 +282,7 @@ The following is an example config file section containing all available config 
 Designed to be run on a staging/production server, this is a simple "deployment" script that takes several steps to get the local environment up-to-date with changes in the ``origin`` repository. The steps include:
 
 1. Checking for new commits. If no new commits are found, the script exits.
-2. Pulling in the remote changes.
+2. Pulling in the remote changes. By default, this pulls from the ``main`` branch, but this can be configured with the ``branch_name`` setting.
 3. Checking for updates to Python dependencies (via ``requirements.txt``). The newly pulled requirements file is compared to a copy taken the first time the command is run. If changes are detected, they are displayed to the user and a prompt to install them is shown. If they are installed, a new copy is taken of the requirements file for comparison on the next update. This step can have false positives/negatives if manual updates are performed in the interim (i.e. not using ``UpdateTask``).
 4. Checking for unapplied migrations. If any are found, they are displayed to the user and a prompt to apply them (via Django's ``migrate`` management command) is shown.
 5. Running Django's ``remove_stale_contenttypes`` management command to check for and prompt to remove any ``ContentType`` records whose corresponding models no longer exist in the source code.
@@ -347,3 +347,13 @@ Arguments
 ``UpdateTask`` accepts the following arguments:
 
 * ``--no-input``: Run without prompting the user for input. See :ref:`builtins-update-noinput`.
+
+Settings
+--------
+
+The following is an example config file section containing all available config options and examples of their use. It assumes ``UpdateTask`` has been given the name "update" in the ``jog.py`` file.
+
+.. code-block:: ini
+
+    [jogger:update]
+    branch_name = trunk  # the branch name to pull from (default: main)
