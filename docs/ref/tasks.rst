@@ -10,6 +10,10 @@ Tasks
 
         The help text for this task, output when the task is invoked with ``-h``/``--help``.
 
+    .. attribute:: default_long_input_editor
+
+        The editor program to launch when invoking the :meth:`~Task.long_input` method and no system default editor can be determined. Defaults to ``'nano'``.
+
     .. attribute:: settings
 
         The object containing any settings for this task that were included in a project-level :doc:`config file <../topics/config>`.
@@ -46,3 +50,4 @@ Tasks
     .. automethod:: handle
     .. automethod:: cli
     .. automethod:: get_task_proxy
+    .. automethod:: long_input

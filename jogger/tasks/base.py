@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from inspect import cleandoc
 
 from jogger.exceptions import TaskDefinitionError, TaskError
@@ -24,6 +25,8 @@ class Task:
     """
     
     help = ''
+    
+    default_long_input_editor = 'nano'
     
     def __init__(self, prog, name, conf, argv, stdout, stderr):
         
@@ -150,6 +153,35 @@ class Task:
                 kwargs['stderr'] = self.kwargs['stderr']
         
         return subprocess.run(cmd, shell=True, **kwargs)
+
+    def long_input(self, default=None, editor=None):
+        """
+        Replacement for Python's ``input()`` builtin that uses the system's
+        default editor to ask for user input.
+        
+        :param default: Default text to populate the editor with.
+        :param editor: The editor to use. The system default will be used if
+            this is not provided.
+        :return: The text entered by the user.
+        """
+        
+        # This is adapted from code by Chase Seibert, see:
+        # https://chase-seibert.github.io/blog/2012/10/31/python-fork-exec-vim-raw-input.html
+        
+        if not editor:
+            editor = os.environ.get('VISUAL') or os.environ.get('EDITOR') or self.default_long_input_editor
+        
+        with tempfile.NamedTemporaryFile(mode='r+') as tmpfile:
+            if default:
+                tmpfile.write(default)
+                tmpfile.flush()
+            
+            subprocess.run([editor, tmpfile.name])
+            
+            tmpfile.seek(0)
+            content = tmpfile.read().strip()
+        
+        return content
     
     def get_task_proxy(self, task_name, *args):
         """

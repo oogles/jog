@@ -94,6 +94,17 @@ The following example attempts to execute the ``build`` task if it has been defi
 
             # ...
 
+Requesting user input
+---------------------
+
+Tasks often need to ask the user for input, for a variety of reasons. If they only require a short string, such as a name or a yes/no confirmation, Python's ``input()`` builtin works nicely. But if long-form text is required, class-based tasks offer the :meth:`~Task.long_input` method, which opens the system's default editor to request user input. The method returns the content the user enters into the editor.
+
+Using :meth:`~Task.long_input` also allows a default value to be provided, using the ``default`` argument. The editor will open with the default value already entered, and the user can accept it, modify it, or completely replace it as necessary.
+
+If the system's default editor is not desired, a specific editor can be specified using the ``editor`` argument. The value should be the name of the command line program used to launch the editor, e.g. ``'nano'`` or ``'vi'``. The given program must be able to accept a filename as a command line argument to open/edit a provided file.
+
+If the ``editor`` argument is not given, and a system default editor cannot be determined (after checking the environment variables ``VISUAL`` and ``EDITOR``), the editor specified by :attr:`~Task.default_long_input_editor` is used. This defaults to ``'nano'``, but can be overridden on subclasses.
+
 Halting execution
 -----------------
 
