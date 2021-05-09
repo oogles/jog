@@ -119,6 +119,10 @@ It uses the following coverage.py commands:
 
     The on-screen summary report will be skipped entirely if the verbosity level is less than ``1``.
 
+.. note::
+
+    *All* reporting will be skipped if the test suite fails (as a failure typically means at least some code was not reached, and therefore not covered, so the reports won't necessarily be accurate). However, the task can be instructed to display the reports regardless of a failure by calling it with the ``--cover`` switch. Alternatively, the ``--report`` switch can be used to skip running the tests again and display the reports from the previous (failed) run.
+
 ``TestTask`` accepts several of its own arguments, detailed below, but also passes any additional arguments through to the underlying ``manage.py test`` command. Assuming the task has been given the name "test" in ``jog.py``, this means you can do any of the following::
 
     jog test
@@ -214,6 +218,7 @@ Arguments
 * ``--report``: Skip the test suite and just generate the coverage reports. Useful to review previous results or if using ``-a`` to accumulate results.
 * ``--no-html``: Skip generating the detailed HTML code coverage report. The on-screen summary report will still be displayed.
 * ``--no-cover``: Run the test suite only. Skip all code coverage analysis and do not generate any coverage reports.
+* ``--cover``: Force coverage analysis and reports in situations where they would ordinarily be skipped, e.g. when the test suite fails.
 
 .. note::
 

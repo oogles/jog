@@ -92,6 +92,16 @@ class TestTask(Task):
         )
         
         parser.add_argument(
+            '--cover',
+            action='store_true',
+            dest='force_cover',
+            help=(
+                'Force coverage analysis and reports in situations where they '
+                'would ordinarily be skipped, e.g. when the test suite fails.'
+            )
+        )
+        
+        parser.add_argument(
             '--no-cover',
             action='store_true',
             dest='no_cover',
@@ -109,7 +119,9 @@ class TestTask(Task):
                 raise TaskError('-a and --report are mutually exclusive.')
         
         if options['no_cover']:
-            if options['accumulate']:
+            if options['force_cover']:
+                raise TaskError('--cover and --no-cover are mutually exclusive.')
+            elif options['accumulate']:
                 raise TaskError('-a and --no-cover are mutually exclusive.')
             elif options['reports_only']:
                 raise TaskError('--report and --no-cover are mutually exclusive.')
@@ -251,8 +263,11 @@ class TestTask(Task):
             else:
                 raise TaskError(msg)
         elif not options['no_cover'] and not options['accumulate'] and not options['quick']:
-            if not tests_passed:
-                self.stdout.write('Tests failed, coverage reports skipped.')
+            if not tests_passed and not options['force_cover']:
+                self.stdout.write(
+                    'Tests failed, coverage reports skipped. Show reports '
+                    'anyway by using the --cover switch.'
+                )
             else:
                 self.do_summary(**options)
                 self.do_html_report(**options)
