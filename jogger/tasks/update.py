@@ -48,12 +48,17 @@ class UpdateTask(Task):
         
         self.stdout.write('Checking for updates', style='label')
         
-        result = self.cli('git log --oneline origin master..master | wc -l', capture=True)
+        # Get remote refs up to date before checking. Swallow output so it
+        # isn't written to the output stream.
+        update_result = self.cli('git remote update', capture=True)
+        if update_result.returncode:
+            raise TaskError('Update check failed, could not update remotes')
         
-        if result.returncode:
-            raise TaskError('Update check failed')
+        log_result = self.cli('git log --oneline origin master..master | wc -l', capture=True)
+        if log_result.returncode:
+            raise TaskError('Update check failed, could not run diff')
         
-        update_count = int(result.stdout)
+        update_count = int(log_result.stdout)
         if not update_count:
             self.stdout.write('No remote changes')
             sys.exit(0)
