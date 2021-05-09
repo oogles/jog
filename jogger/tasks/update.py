@@ -28,6 +28,11 @@ class UpdateTask(Task):
             )
         )
     
+    @property
+    def branch_name(self):
+        
+        return self.settings.get('branch_name', self.default_branch_name)
+    
     def handle(self, **options):
         
         self.check_updates()
@@ -52,10 +57,13 @@ class UpdateTask(Task):
         # isn't written to the output stream.
         update_result = self.cli('git remote update', capture=True)
         if update_result.returncode:
+            self.stderr.write(update_result.stderr.decode('utf-8'))
             raise TaskError('Update check failed, could not update remotes')
         
-        log_result = self.cli('git log --oneline origin master..master | wc -l', capture=True)
+        branch_name = self.branch_name
+        log_result = self.cli(f'git log --oneline origin {branch_name}..{branch_name} | wc -l', capture=True)
         if log_result.returncode:
+            self.stderr.write(log_result.stderr.decode('utf-8'))
             raise TaskError('Update check failed, could not run diff')
         
         update_count = int(log_result.stdout)
@@ -87,7 +95,7 @@ class UpdateTask(Task):
         
         self.stdout.write('\nPulling', style='label')
         
-        branch_name = self.settings.get('branch_name', self.default_branch_name)
+        branch_name = self.branch_name
         cmd = f'git pull origin {branch_name} --prune --no-rebase'
         
         result = self.cli(cmd)
