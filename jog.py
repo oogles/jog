@@ -5,6 +5,16 @@ import sys
 from jogger.tasks import DocsTask, LintTask, Task, TaskError
 
 
+def strip_comments(text):
+    """
+    Remove comment lines (those starting with #) and leading/trailing
+    whitespace from ``text``.
+    """
+    
+    # (m?) enables multiline mode
+    return re.sub(r'(?m)^ *#.*\n?', '', text).strip()
+
+
 class ReleaseTask(Task):
     
     default_main_branch = 'main'
@@ -161,10 +171,12 @@ class ReleaseTask(Task):
         commit_summary = diff_result.stdout.decode('utf-8')
         default_commit_msg = (
             '# Committing version bump. Enter a commit message below:\n'
-            f'Bumped version to {new_version}.\n#\n{commit_summary}'
+            f'Bumped version to {new_version}.\n\n'
+            f'# Summary of changes:\n{commit_summary}'
         )
         
         commit_msg = self.long_input(default_commit_msg)
+        commit_msg = strip_comments(commit_msg)
         self.cli(f'git commit -m "{commit_msg}"')
         
         default_tag_msg = (
@@ -173,6 +185,7 @@ class ReleaseTask(Task):
         )
         
         tag_msg = self.long_input(default_tag_msg)
+        tag_msg = strip_comments(tag_msg)
         self.cli(f'git tag -a {new_version} -m "{tag_msg}"')
         
         self.cli(f'git push origin {branch_name} --tags')
