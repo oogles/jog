@@ -64,12 +64,9 @@ class ReleaseTask(Task):
     
     def handle(self, *args, **options):
         
+        current_branch_name = self.verify_state()
+        
         labeller = self.styler.label
-        
-        check_result = self.cli('git diff-index --quiet HEAD --')
-        if check_result.returncode:
-            raise TaskError('Uncommitted changes detected.')
-        
         confirmation = input(
             f'Confirm moving from {labeller(self.current_version)} to '
             f'{labeller(self.new_version)} (Y/n)? '
@@ -77,8 +74,7 @@ class ReleaseTask(Task):
         if confirmation.lower() != 'y':
             sys.exit(0)
         
-        branch_name = self.create_branch()
-        
+        branch_name = self.create_branch(current_branch_name)
         self.bump_version()
         self.commit_and_tag(branch_name)
         self.merge(branch_name)
@@ -86,19 +82,46 @@ class ReleaseTask(Task):
         
         self.stdout.write('\nDone!', style='label')
     
-    def create_branch(self):
+    def verify_state(self):
+        
+        self.stdout.write('Verifying state...', style='label')
+        
+        check_result = self.cli('git diff-index --quiet HEAD --')
+        if check_result.returncode:
+            raise TaskError('Uncommitted changes detected.')
         
         lookup_result = self.cli('git branch --show-current', capture=True)
-        branch = lookup_result.stdout.decode('utf-8').strip()
+        branch_name = lookup_result.stdout.decode('utf-8').strip()
+        
+        # Get remote refs up to date before checking for unpushed changes.
+        # Swallow output so it isn't written to the output stream.
+        update_result = self.cli('git remote update', capture=True)
+        if update_result.returncode:
+            self.stderr.write(update_result.stderr.decode('utf-8'), style='normal')
+            raise TaskError('Could not update remotes')
+        
+        log_result = self.cli(f'git log --oneline {branch_name}..origin {branch_name} | wc -l', capture=True)
+        if log_result.returncode:
+            self.stderr.write(log_result.stderr.decode('utf-8'), style='normal')
+            raise TaskError('Could not complete check for unpushed changes')
+        
+        if int(log_result.stdout):
+            raise TaskError('Unpushed changes detected.')
+        
+        self.stdout.write('All good')
+        
+        return branch_name
+    
+    def create_branch(self, current_branch):
         
         new_branch = self.release_branch_name
         labeller = self.styler.label
         
-        self.stdout.write(f'\nCurrently on branch: {labeller(branch)}')
+        self.stdout.write(f'\nCurrently on branch: {labeller(current_branch)}')
         
-        answer = input(f'Create release branch {labeller(new_branch)} from {labeller(branch)} (Y/n)? ')
+        answer = input(f'Create release branch {labeller(new_branch)} from {labeller(current_branch)} (Y/n)? ')
         if answer.lower() != 'y':
-            return branch
+            return current_branch
         
         self.stdout.write('Creating release branch', style='label')
         create_result = self.cli(f'git checkout -b {new_branch}')
