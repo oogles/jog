@@ -1,6 +1,8 @@
+import configparser
 import os
 import re
 import sys
+from os.path import expanduser
 
 from .base import Task, TaskError
 
@@ -98,16 +100,32 @@ class ReleaseTask(Task):
         
         self.stdout.write('Verifying state...', style='label')
         
+        # Ensure the necessary Python libraries to build and release the
+        # package are available
         if not HAS_BUILD:
             raise TaskError('Missing requirement: build')
         
         if not HAS_TWINE:
             raise TaskError('Missing requirement: twine')
         
+        # Ensure a correct-looking .pypirc is present
+        config_file = configparser.ConfigParser()
+        config_file.read(expanduser('~/.pypirc'))
+        
+        try:
+            pypi_config = config_file['pypi']
+        except KeyError:
+            raise TaskError('A ~/.pypirc file is missing or does not contain a [pypi] section.')
+        
+        if 'username' not in pypi_config or 'password' not in pypi_config:
+            raise TaskError('The PyPI config file must contain at least a username and password.')
+        
+        # Ensure there are no uncommitted changes
         check_result = self.cli('git diff-index --quiet HEAD --')
         if check_result.returncode:
             raise TaskError('Uncommitted changes detected.')
         
+        # Ensure there are no unpushed changes
         lookup_result = self.cli('git branch --show-current', capture=True)
         branch_name = lookup_result.stdout.decode('utf-8').strip()
         
