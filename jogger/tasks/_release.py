@@ -2,7 +2,19 @@ import os
 import re
 import sys
 
-from jogger.tasks import Task, TaskError
+from .base import Task, TaskError
+
+try:
+    import build  # noqa
+    HAS_BUILD = True
+except ImportError:
+    HAS_BUILD = False
+
+try:
+    import twine  # noqa
+    HAS_TWINE = True
+except ImportError:
+    HAS_TWINE = False
 
 
 def strip_comments(text):
@@ -85,6 +97,12 @@ class ReleaseTask(Task):
     def verify_state(self):
         
         self.stdout.write('Verifying state...', style='label')
+        
+        if not HAS_BUILD:
+            raise TaskError('Missing requirement: build')
+        
+        if not HAS_TWINE:
+            raise TaskError('Missing requirement: twine')
         
         check_result = self.cli('git diff-index --quiet HEAD --')
         if check_result.returncode:
