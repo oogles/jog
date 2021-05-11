@@ -69,12 +69,24 @@ class ReleaseTask(Task):
             except AttributeError:
                 raise TaskError('Invalid release branch format.')
     
-    # TODO: Genericise
     def get_current_version(self):
         
-        from jogger import __version__
+        path = self.settings.get('authoritative_version_path', None)
+        if not path:
+            raise TaskError('No path to a file containing the authoritative version is configured.')
         
-        return __version__
+        with open(path, 'r') as f:
+            file_contents = f.read()
+            
+            # (?m) enables multiline mode
+            pattern = r'(?m)^__version__ ?= ?(\'|")(.+)(\'|")'
+            match = re.search(pattern, file_contents)
+            if not match:
+                raise TaskError(f'Authoritative version not found in {path}.')
+            
+            version = match.group(2)
+        
+        return version
     
     def handle(self, *args, **options):
         
