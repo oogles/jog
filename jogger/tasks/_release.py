@@ -178,44 +178,68 @@ class ReleaseTask(Task):
         
         return new_branch
     
-    def bump_version(self):
+    def _replace_version(self, text):
         
         current_version = self.current_version
-        current_major_version = self.current_major_version
         new_version = self.new_version
+        
+        if current_version not in text:
+            raise TaskError(f'Could not detect version.')
+        
+        return text.replace(current_version, new_version)
+    
+    def _replace_sphinx_major_version(self, text):
+        
+        current_major_version = self.current_major_version
         new_major_version = self.new_major_version
         
-        bump_paths = self.settings.get('bump_paths', '')
-        bump_paths = [i.strip() for i in bump_paths.splitlines()]
-        bump_paths = list(filter(None, bump_paths))
+        if current_major_version != new_major_version:
+            pattern = f'version ?= ?(\'|"){current_major_version}(\'|")'
+            text = re.sub(pattern, f"version = '{new_major_version}'", text)
         
-        if not bump_paths:
-            self.stdout.write('Warning: no paths provided for version bumping.', style='warning')
+        return text
+
+    def bump_version(self):
         
         self.stdout.write('Bumping version', style='label')
-        for path in bump_paths:
+        
+        # Build a list of two-tuples, where each item tuple contains:
+        # - the path to the file containing a version to be bumped
+        # - a sequence of one or more "replacer" methods that will be passed
+        #   the files contents and should return them with the version updated
+        #   as necessary
+        bumps = [
+            (self.settings['authoritative_version_path'], (self._replace_version, ))
+        ]
+        
+        sphinx_conf_path = self.settings.get('sphinx_conf_path', None)
+        if sphinx_conf_path:
+            # The Sphinx conf potentially needs an update to the major version
+            # as well as the release version
+            replacers = [self._replace_version]
+            if self.new_major_version:
+                replacers.append(self._replace_sphinx_major_version)
+            
+            bumps.append((sphinx_conf_path, replacers))
+        
+        for path, replacers in bumps:
             with open(path, 'r+') as f:
                 file_contents = f.read()
-                if current_version not in file_contents:
-                    raise TaskError(f'Could not detect version in {path}.')
                 
-                file_contents = file_contents.replace(current_version, new_version)
+                for replacer_fn in replacers:
+                    try:
+                        file_contents = replacer_fn(file_contents)
+                    except TaskError:
+                        raise TaskError(f'Could not detect version in {path}.')
                 
-                if new_major_version and os.path.basename(path) == 'conf.py' and 'Sphinx' in file_contents:
-                    # Looks like a Sphinx config file and a separate "major"
-                    # version is known
-                    if current_major_version != new_major_version:
-                        pattern = f'version ?= ?(\'|"){current_major_version}(\'|")'
-                        file_contents = re.sub(pattern, f"version = '{new_major_version}'", file_contents)
-                
-                # Replace the file contents with the updates. Only truncate now,
-                # as opposed to opening the file in 'w' mode, due to the
-                # potential for errors above leaving the file empty.
+                # Replace the file contents with the updates. Only truncate
+                # now, as opposed to opening the file in 'w' mode, due to the
+                # potential for errors encountered above leaving the file empty.
                 f.seek(0)
                 f.truncate()
                 f.write(file_contents)
         
-        paths_string = ' '.join(bump_paths)
+        paths_string = ' '.join(path for path, replacers in bumps)
         
         self.cli(f'git --no-pager diff {paths_string}')
         
