@@ -335,7 +335,13 @@ class TaskProxy:
             formatter_class=argparse.RawTextHelpFormatter
         )
         
-        return parser.parse_args(self.argv)
+        # If no explicit args are provided, use an empty string. This prevents
+        # parse_args() from using `sys.argv` as a default value, which is
+        # especially problematic if calling one task from within another (e.g.
+        # using Task.get_task_proxy()).
+        args = self.argv or ''
+        
+        return parser.parse_args(args)
     
     def execute(self):
         
