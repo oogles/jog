@@ -4,12 +4,12 @@ import re
 import subprocess
 import sys
 import tempfile
-from inspect import cleandoc
 
 from jogger.exceptions import TaskDefinitionError, TaskError
-from jogger.utils.output import OutputWrapper
+from jogger.utils.output import OutputWrapper, clean_doc_string
 
 TASK_NAME_RE = re.compile(r'^\w+$')
+DEFAULT_HELP_TEXT = 'No help text provided. Just guess?'
 
 #
 # The class-based "task" interface is heavily based on Django's management
@@ -291,12 +291,12 @@ class TaskProxy:
         elif isinstance(task, type) and issubclass(task, Task):
             self.exec_mode = 'python'
             self.executor = self.execute_class
-            self.help_text = task.help
+            self.help_text = task.help if task.help else DEFAULT_HELP_TEXT
             self.has_own_args = True
         elif callable(task):
             self.exec_mode = 'python'
             self.executor = self.execute_callable
-            self.help_text = cleandoc(task.__doc__) if task.__doc__ else ''
+            self.help_text = clean_doc_string(task.__doc__) if task.__doc__ else DEFAULT_HELP_TEXT
             self.has_own_args = False
         else:
             raise TaskDefinitionError(f'Unrecognised task format for "{name}".')

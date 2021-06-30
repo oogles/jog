@@ -1,5 +1,6 @@
 import os
 import sys
+from inspect import cleandoc
 from io import TextIOBase
 
 #
@@ -14,6 +15,19 @@ BACKGROUND = {COLOR_NAMES[x]: '4%s' % x for x in range(8)}
 
 OPTIONS = {'bold': '1', 'underscore': '4', 'blink': '5', 'reverse': '7', 'conceal': '8'}
 RESET = '\x1b[0m'
+
+
+def clean_doc_string(doc):
+    
+    # Clean up indentation
+    doc = cleandoc(doc)
+    
+    # Also remove superfluous newlines created by wrapping continuous lines.
+    # If newlines are desired in help text output, use *two* newlines in the
+    # docstring.
+    doc = doc.replace('\n\n', '\\N').replace('\n', ' ').replace('\\N', '\n')
+    
+    return doc
 
 
 class Styler:
