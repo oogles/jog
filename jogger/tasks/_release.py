@@ -1,5 +1,4 @@
 import configparser
-import os
 import re
 import sys
 from os.path import expanduser
@@ -30,6 +29,12 @@ def strip_comments(text):
 
 
 class ReleaseTask(Task):
+    
+    help = (
+        'Prepare and issue a new release of the project, including: Optionally '
+        'create a new version branch, bump the version number and commit the '
+        'changes, tag the release, build and upload to PyPI.'
+    )
     
     default_main_branch = 'main'
     
@@ -91,7 +96,7 @@ class ReleaseTask(Task):
     def handle(self, *args, **options):
         
         current_branch_name = self.verify_state()
-        
+
         labeller = self.styler.label
         confirmation = input(
             f'Confirm moving from {labeller(self.current_version)} to '
@@ -99,14 +104,15 @@ class ReleaseTask(Task):
         )
         if confirmation.lower() != 'y':
             sys.exit(0)
-        
+
         branch_name = self.create_branch(current_branch_name)
         self.bump_version()
         self.commit_and_tag(branch_name)
-        self.merge(branch_name)
-        self.build()
+        self.do_build()
         
         self.stdout.write('\nDone!', style='label')
+        
+        self.show_merge_instructions(branch_name)
     
     def verify_state(self):
         
@@ -184,7 +190,7 @@ class ReleaseTask(Task):
         new_version = self.new_version
         
         if current_version not in text:
-            raise TaskError(f'Could not detect version.')
+            raise TaskError('Could not detect version.')
         
         return text.replace(current_version, new_version)
     
@@ -285,21 +291,7 @@ class ReleaseTask(Task):
         
         self.cli(f'git push origin {branch_name} --tags')
     
-    def merge(self, branch_name):
-        
-        main_branch_name = self.settings.get('main_branch', self.default_main_branch)
-        
-        if branch_name == main_branch_name:
-            return
-        
-        self.stdout.write(f'Merging version bump back to {main_branch_name}', style='label')
-        
-        # Merge the release branch back into the main branch and return
-        self.cli(f'git checkout {main_branch_name}')
-        self.cli(f'git merge --no-ff {branch_name}')
-        self.cli(f'git checkout {branch_name}')
-    
-    def build(self):
+    def do_build(self):
         
         answer = input(f'Build and release version {self.new_version} (Y/n)? ')
         
@@ -320,3 +312,15 @@ class ReleaseTask(Task):
         rm_result = self.cli('rm -rf ./build/ ./dist/ ./*egg-info/')
         if rm_result.returncode:
             raise TaskError('Cleanup failed.')
+    
+    def show_merge_instructions(self, branch_name):
+        
+        main_branch_name = self.settings.get('main_branch', self.default_main_branch)
+        
+        if branch_name == main_branch_name:
+            return
+        
+        self.stdout.write(f'\nTo merge the release branch back into {main_branch_name}:', style='label')
+        self.stdout.write(f'git checkout {main_branch_name}')
+        self.stdout.write(f'git merge --no-ff {branch_name}')
+        self.stdout.write(f'git push origin {main_branch_name}')
