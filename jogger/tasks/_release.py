@@ -154,7 +154,7 @@ class ReleaseTask(Task):
             self.stderr.write(update_result.stderr.decode('utf-8'), style='normal')
             raise TaskError('Could not update remotes')
         
-        log_result = self.cli(f'git log --oneline {branch_name}..origin {branch_name} | wc -l', capture=True)
+        log_result = self.cli(f'git log --oneline origin/{branch_name}..{branch_name} | wc -l', capture=True)
         if log_result.returncode:
             self.stderr.write(log_result.stderr.decode('utf-8'), style='normal')
             raise TaskError('Could not complete check for unpushed changes')
