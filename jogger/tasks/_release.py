@@ -173,6 +173,9 @@ class ReleaseTask(Task):
         
         self.stdout.write(f'\nCurrently on branch: {labeller(current_branch)}')
         
+        if new_branch == current_branch:
+            return current_branch
+        
         answer = input(f'Create release branch {labeller(new_branch)} from {labeller(current_branch)} (Y/n)? ')
         if answer.lower() != 'y':
             return current_branch
