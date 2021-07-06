@@ -52,7 +52,7 @@ def main(argv=None):
         conf = JogConf()
         tasks = conf.get_tasks()
         for name, task in tasks.items():
-            tasks[name] = TaskProxy(prog, name, task, conf, stdout, stderr, arguments.extra)
+            tasks[name] = TaskProxy(prog, name, task, conf, argv=arguments.extra)
     except (FileNotFoundError, TaskDefinitionError) as e:
         stderr.write(str(e))
         sys.exit(1)
@@ -71,7 +71,7 @@ def main(argv=None):
     else:
         stdout.write('Available tasks:', 'label')
         for task in tasks.values():
-            task.output_description()
+            stdout.write(task.get_description(stdout.styler))
 
 
 if __name__ == '__main__':

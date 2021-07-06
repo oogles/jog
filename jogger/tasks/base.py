@@ -25,14 +25,14 @@ class BaseTask:
     
     help = ''
     
-    def __init__(self, prog, name, conf, stdout, stderr, argv=None):
+    def __init__(self, prog, name, conf, default_stdout, default_stderr, argv=None):
         
         self.prog = prog
         self.name = name
         self.conf = conf
         self._settings = None
         
-        parser = self.create_parser(prog, stdout, stderr)
+        parser = self.create_parser(prog, default_stdout, default_stderr)
         
         # If no explicit args are provided, use an empty string. This prevents
         # parse_args() from using `sys.argv` as a default value, which is
@@ -59,8 +59,8 @@ class BaseTask:
         self.stderr = OutputWrapper(stderr, no_color=no_color, default_style='error')
         self.styler = self.stdout.styler
         
-        self.using_system_out = stdout.name == '<stdout>'
-        self.using_system_err = stderr.name == '<stderr>'
+        self.using_system_out = stdout is sys.stdout
+        self.using_system_err = stderr is sys.stderr
         
         self.args = kwargs.pop('args', ())
         self.kwargs = kwargs
@@ -173,7 +173,7 @@ class SimpleTask(BaseTask):
     A helper class for executing string- and function-based tasks.
     """
     
-    def __init__(self, task, prog, name, conf, stdout, stderr, argv=None):
+    def __init__(self, task, prog, name, conf, default_stdout, default_stderr, argv=None):
         
         self.task = task
         if isinstance(task, str):
@@ -185,7 +185,7 @@ class SimpleTask(BaseTask):
         else:
             raise TaskDefinitionError(f'Unrecognised task format for "{name}".')
         
-        super().__init__(prog, name, conf, stdout, stderr, argv)
+        super().__init__(prog, name, conf, default_stdout, default_stderr, argv)
     
     def handle(self, *args, **kwargs):
         
@@ -284,8 +284,18 @@ class Task(BaseTask):
         except KeyError:
             raise TaskDefinitionError(f'Unknown task "{task_name}".')
         
+        # Don't pass through the OutputWrapper instances themselves, just the
+        # stream they wrap. The nested task instance will create its own
+        # OutputWrapper around it, potentially with a different configuration
+        # (depending on arguments such as --no-color). But passing through the
+        # underlying streams allows reusing them, which is important for streams
+        # redirected to files so they append to the same file rather than
+        # overwriting each other.
+        stdout = self.stdout._out
+        stderr = self.stderr._out
+        
         # Get the proxy instance, allow raising TaskDefinitionError if necessary
-        proxy = TaskProxy('proxy.execute', task_name, task, self.conf, self.stdout, self.stderr)
+        proxy = TaskProxy('proxy.execute', task_name, task, self.conf, stdout, stderr)
         
         # Propagate common arguments of the source task, if not provided explicitly
         args = list(args)
@@ -296,7 +306,7 @@ class Task(BaseTask):
         if not proxy.simple:
             if '-v' not in args and '--verbosity' not in args:
                 args.extend(('--verbosity', str(self.kwargs['verbosity'])))
-            
+        
         proxy.argv = args
         
         return proxy
@@ -318,7 +328,7 @@ class TaskProxy:
         output streams, in addition to accepting its own custom arguments.
     """
     
-    def __init__(self, prog, name, task, conf, stdout, stderr, argv=None):
+    def __init__(self, prog, name, task, conf, stdout=None, stderr=None, argv=None):
         
         try:
             valid_name = TASK_NAME_RE.match(name)
@@ -346,6 +356,12 @@ class TaskProxy:
         else:
             raise TaskDefinitionError(f'Unrecognised task format for "{name}".')
         
+        if stdout is None:
+            stdout = sys.stdout
+        
+        if stderr is None:
+            stderr = sys.stderr
+        
         self.prog = f'{prog} {name}'
         self.name = name
         self.task = task
@@ -356,34 +372,22 @@ class TaskProxy:
     
     def output_description(self):
         """
-        Output a description of this task to the configured output stream,
-        suitable for display in a listing of available tasks.
+        Return a description of this task, suitable for display in a listing
+        of available tasks.
         """
-        
-        stdout = self.stdout
-        styler = stdout.styler
         
         name = styler.heading(self.name)
         description = styler.apply(self.description or DEFAULT_DESCRIPTION, fg=self.description_fg)
         
-        stdout.write(f'{name}: {description}')
-        stdout.write(f'    See "{self.prog} --help" for usage details')
+        return f'{name}: {description}\n    See "{self.prog} --help" for usage details'
     
     def execute(self):
         
-        # Don't pass through the OutputWrapper instances themselves, just the
-        # stream they wrap. The Task instance will create its own OutputWrapper
-        # around it, potentially with a different configuration (depending on
-        # arguments such as --no-color). But passing through the underlying
-        # streams allows reusing them, which is particularly important when
-        # calling nested tasks with streams redirected to files, so they append
-        # to the same file rather than overwriting each other.
-        stdout = self.stdout._out
-        stderr = self.stderr._out
+        common_args = (self.prog, self.name, self.conf, self.stdout, self.stderr, self.argv)
         
         if self.simple:
-            task = SimpleTask(self.task, self.prog, self.name, self.conf, stdout, stderr, self.argv)
+            task = SimpleTask(self.task, *common_args)
         else:
-            task = self.task(self.prog, self.name, self.conf, stdout, stderr, self.argv)
+            task = self.task(*common_args)
         
         task.execute()
