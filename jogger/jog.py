@@ -71,7 +71,7 @@ def main(argv=None):
     else:
         stdout.write('Available tasks:', 'label')
         for task in tasks.values():
-            task.output_help_line()
+            task.output_description()
 
 
 if __name__ == '__main__':

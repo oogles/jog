@@ -6,10 +6,10 @@ import sys
 import tempfile
 
 from jogger.exceptions import TaskDefinitionError, TaskError
-from jogger.utils.output import OutputWrapper, clean_doc_string
+from jogger.utils.output import OutputWrapper, clean_description
 
 TASK_NAME_RE = re.compile(r'^\w+$')
-DEFAULT_HELP_TEXT = 'No help text provided. Just guess?'
+DEFAULT_DESCRIPTION = 'No task description provided. Just guess?'
 
 #
 # The class-based "task" interface is heavily based on Django's management
@@ -18,23 +18,27 @@ DEFAULT_HELP_TEXT = 'No help text provided. Just guess?'
 #
 
 
-class Task:
+class BaseTask:
     """
-    An advanced ``jogger`` task capable of defining its own arguments and
-    redirecting the ``stdout`` and ``stderr`` output streams.
+    A base class for controlling configuration and execution of ``jogger`` tasks.
     """
     
     help = ''
     
-    default_long_input_editor = 'nano'
-    
-    def __init__(self, prog, name, conf, argv, stdout, stderr):
+    def __init__(self, prog, name, conf, stdout, stderr, argv=None):
         
+        self.prog = prog
         self.name = name
         self.conf = conf
         self._settings = None
         
         parser = self.create_parser(prog, stdout, stderr)
+        
+        # If no explicit args are provided, use an empty string. This prevents
+        # parse_args() from using `sys.argv` as a default value, which is
+        # especially problematic if calling one task from within another (e.g.
+        # using Task.get_task_proxy()).
+        argv = argv or ''
         options = parser.parse_args(argv)
         
         kwargs = vars(options)
@@ -42,9 +46,11 @@ class Task:
         stdout = kwargs['stdout']
         stderr = kwargs['stderr']
         
-        if stdout.name == stderr.name:
-            # The two streams are redirected to the same location, use the same
-            # handle for each so they don't write over the top of each other
+        # If the two streams are redirected to the same location, use the same
+        # handle for each so they don't write over the top of each other.
+        # Nested tasks may have already performed this step, so also ensure
+        # the handles aren't already the same.
+        if stdout.name == stderr.name and stdout is not stderr:
             stderr.close()
             kwargs['stderr'] = stderr = stdout
         
@@ -67,15 +73,8 @@ class Task:
         
         parser = argparse.ArgumentParser(
             prog=prog,
-            description=self.help or None
-        )
-        
-        parser.add_argument(
-            '-v', '--verbosity',
-            default=1,
-            type=int,
-            choices=[0, 1, 2, 3],
-            help='Verbosity level; 0=minimal output, 1=normal output, 2=verbose output, 3=very verbose output'
+            description=self.help or None,
+            formatter_class=argparse.RawTextHelpFormatter
         )
         
         # Use line buffering. Might not be the best for performance, but
@@ -117,11 +116,6 @@ class Task:
         pass
     
     @property
-    def project_dir(self):
-        
-        return self.conf.project_dir
-    
-    @property
     def settings(self):
         
         if not self._settings:
@@ -153,7 +147,83 @@ class Task:
                 kwargs['stderr'] = self.kwargs['stderr']
         
         return subprocess.run(cmd, shell=True, **kwargs)
+    
+    def execute(self):
+        """
+        Execute this task. Intercept any raised ``TaskError`` and print it
+        sensibly to ``stderr``. Allow all other exceptions to raise as per usual.
+        """
+        
+        try:
+            self.handle(*self.args, **self.kwargs)
+        except TaskError as e:
+            self.stderr.write(str(e))
+            sys.exit(1)
+    
+    def handle(self, *args, **kwargs):
+        """
+        The actual logic of the task. Subclasses must implement this method.
+        """
+        
+        raise NotImplementedError('Subclasses must provide a handle() method.')
 
+
+class SimpleTask(BaseTask):
+    """
+    A helper class for executing string- and function-based tasks.
+    """
+    
+    def __init__(self, task, prog, name, conf, stdout, stderr, argv=None):
+        
+        self.task = task
+        if isinstance(task, str):
+            self.help = f'Executes the following task on the command line:\n{task}'
+            self._is_callable = False
+        elif callable(task):
+            self.help = clean_description(task.__doc__, collapse_paragraphs=False)
+            self._is_callable = True
+        else:
+            raise TaskDefinitionError(f'Unrecognised task format for "{name}".')
+        
+        super().__init__(prog, name, conf, stdout, stderr, argv)
+    
+    def handle(self, *args, **kwargs):
+        
+        if self._is_callable:
+            cmd = self.task(settings=self.settings, stdout=self.stdout, stderr=self.stderr)
+        else:
+            cmd = self.task
+        
+        self.cli(cmd)
+
+
+class Task(BaseTask):
+    """
+    An advanced ``jogger`` task capable of defining its own arguments, calling
+    nested tasks, and other more advanced features.
+    """
+    
+    default_long_input_editor = 'nano'
+    
+    def create_parser(self, *args, **kwargs):
+        
+        parser = super().create_parser(*args, **kwargs)
+        
+        parser.add_argument(
+            '-v', '--verbosity',
+            default=1,
+            type=int,
+            choices=[0, 1, 2, 3],
+            help='Verbosity level; 0=minimal output, 1=normal output, 2=verbose output, 3=very verbose output'
+        )
+        
+        return parser
+    
+    @property
+    def project_dir(self):
+        
+        return self.conf.project_dir
+    
     def long_input(self, default=None, editor=None):
         """
         Replacement for Python's ``input()`` builtin that uses the system's
@@ -193,13 +263,13 @@ class Task:
             proxy = self.get_task_proxy('test')
             proxy.execute()
         
-        Arguments only apply if the target task is defined as a class, and
-        should be provided as individual strings, e.g.::
+        Arguments should be provided as individual strings, e.g.::
         
             proxy = get_task_proxy('test', '-v', '2', 'myapp.tests', '--keepdb')
         
-        If the target task is defined as a class, common arguments of the
-        source task will be propagated automatically, including:
+        Depending on the type of task (string, function, or class based),
+        common arguments of the source task will be propagated automatically,
+        including (where relevant):
         ``-v``/``--verbosity``, ``--stdout``, ``--stderr``, and ``--no-color``.
         
         :param task_name: The task name as a string.
@@ -217,41 +287,19 @@ class Task:
         # Get the proxy instance, allow raising TaskDefinitionError if necessary
         proxy = TaskProxy('proxy.execute', task_name, task, self.conf, self.stdout, self.stderr)
         
-        if proxy.has_own_args:
-            # The target task is also class-based, so common arguments of the
-            # source task can be propagated, if not provided explicitly
-            args = list(args)
-            
+        # Propagate common arguments of the source task, if not provided explicitly
+        args = list(args)
+        
+        if '--no-color' not in args and self.kwargs['no_color']:
+            args.append('--no-color')
+        
+        if not proxy.simple:
             if '-v' not in args and '--verbosity' not in args:
                 args.extend(('--verbosity', str(self.kwargs['verbosity'])))
             
-            if '--no-color' not in args and self.kwargs['no_color']:
-                args.append('--no-color')
-            
-            proxy.argv = args
-        elif args:
-            raise TaskError('String- and function-based tasks do not accept arguments.')
+        proxy.argv = args
         
         return proxy
-    
-    def execute(self):
-        """
-        Execute this task. Intercept any raised ``TaskError`` and print it
-        sensibly to ``stderr``. Allow all other exceptions to raise as per usual.
-        """
-        
-        try:
-            self.handle(*self.args, **self.kwargs)
-        except TaskError as e:
-            self.stderr.write(str(e))
-            sys.exit(1)
-    
-    def handle(self, *args, **kwargs):
-        """
-        The actual logic of the task. Subclasses must implement this method.
-        """
-        
-        raise NotImplementedError('Subclasses of Task must provide a handle() method.')
 
 
 class TaskProxy:
@@ -283,92 +331,45 @@ class TaskProxy:
                 'containing alphanumeric characters and the underscore only.'
             )
         
-        if isinstance(task, str):
-            self.exec_mode = 'cli'
-            self.executor = self.execute_string
-            self.help_text = task
-            self.has_own_args = False
-        elif isinstance(task, type) and issubclass(task, Task):
-            self.exec_mode = 'python'
-            self.executor = self.execute_class
-            self.help_text = task.help if task.help else DEFAULT_HELP_TEXT
-            self.has_own_args = True
+        if isinstance(task, type) and issubclass(task, Task):
+            self.description = clean_description(task.help)
+            self.description_fg = 'blue'
+            self.simple = False
         elif callable(task):
-            self.exec_mode = 'python'
-            self.executor = self.execute_callable
-            self.help_text = clean_doc_string(task.__doc__) if task.__doc__ else DEFAULT_HELP_TEXT
-            self.has_own_args = False
+            self.description = clean_description(task.__doc__)
+            self.description_fg = 'blue'
+            self.simple = True
+        elif isinstance(task, str):
+            self.description = task
+            self.description_fg = 'green'
+            self.simple = True
         else:
             raise TaskDefinitionError(f'Unrecognised task format for "{name}".')
         
         self.prog = f'{prog} {name}'
         self.name = name
-        self.conf = conf
-        
         self.task = task
-        self.argv = argv
-        
+        self.conf = conf
         self.stdout = stdout
         self.stderr = stderr
+        self.argv = argv
     
-    def output_help_line(self):
+    def output_description(self):
+        """
+        Output a description of this task to the configured output stream,
+        suitable for display in a listing of available tasks.
+        """
         
         stdout = self.stdout
         styler = stdout.styler
         
         name = styler.heading(self.name)
-        help_text = self.help_text
-        if self.exec_mode == 'cli':
-            help_text = styler.apply(help_text, fg='green')
-        else:
-            help_text = styler.apply(help_text, fg='blue')
+        description = styler.apply(self.description or DEFAULT_DESCRIPTION, fg=self.description_fg)
         
-        stdout.write(f'{name}: {help_text}')
-        if self.has_own_args:
-            stdout.write(f'    See "{self.prog} --help" for usage details')
-    
-    def parse_simple_args(self, help_text):
-        
-        parser = argparse.ArgumentParser(
-            prog=self.prog,
-            description=help_text,
-            formatter_class=argparse.RawTextHelpFormatter
-        )
-        
-        # If no explicit args are provided, use an empty string. This prevents
-        # parse_args() from using `sys.argv` as a default value, which is
-        # especially problematic if calling one task from within another (e.g.
-        # using Task.get_task_proxy()).
-        args = self.argv or ''
-        
-        return parser.parse_args(args)
+        stdout.write(f'{name}: {description}')
+        stdout.write(f'    See "{self.prog} --help" for usage details')
     
     def execute(self):
-        
-        # Proxy to the appropriate method, sensibly handling any raised
-        # TaskError (which will already be intercepted for class-based tasks,
-        # but not for string or function-based ones)
-        try:
-            self.executor()
-        except TaskError as e:
-            self.stderr.write(str(e))
-            sys.exit(1)
-    
-    def execute_string(self):
-        
-        help_text = f'Executes the following task on the command line:\n{self.help_text}'
-        self.parse_simple_args(help_text)
-        
-        os.system(self.task)
-    
-    def execute_callable(self):
-        
-        self.parse_simple_args(self.help_text)
-        
-        settings = self.conf.get_task_settings(self.name)
-        self.task(settings=settings, stdout=self.stdout, stderr=self.stderr)
-    
-    def execute_class(self):
         
         # Don't pass through the OutputWrapper instances themselves, just the
         # stream they wrap. The Task instance will create its own OutputWrapper
@@ -380,5 +381,9 @@ class TaskProxy:
         stdout = self.stdout._out
         stderr = self.stderr._out
         
-        t = self.task(self.prog, self.name, self.conf, self.argv, stdout, stderr)
-        t.execute()
+        if self.simple:
+            task = SimpleTask(self.task, self.prog, self.name, self.conf, stdout, stderr, self.argv)
+        else:
+            task = self.task(self.prog, self.name, self.conf, stdout, stderr, self.argv)
+        
+        task.execute()

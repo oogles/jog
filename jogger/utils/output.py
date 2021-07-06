@@ -17,17 +17,26 @@ OPTIONS = {'bold': '1', 'underscore': '4', 'blink': '5', 'reverse': '7', 'concea
 RESET = '\x1b[0m'
 
 
-def clean_doc_string(doc):
+def clean_description(description, collapse_paragraphs=True):
+    
+    if not description:
+        return ''
     
     # Clean up indentation
-    doc = cleandoc(doc)
+    description = cleandoc(description)
     
-    # Also remove superfluous newlines created by wrapping continuous lines.
-    # If newlines are desired in help text output, use *two* newlines in the
-    # docstring.
-    doc = doc.replace('\n\n', '\\N').replace('\n', ' ').replace('\\N', '\n')
+    # Always remove single newlines. This removes superfluous newlines created
+    # by wrapping continuous lines in docstrings. If newlines are desired in
+    # help text output, use *two* newlines in the docstring.
+    # If `collapse_paragraphs` is True, double-newlines are replaced with a
+    # single newline. If it is False, they remain as-is.
+    description = description.replace('\n\n', '\\N').replace('\n', ' ')
+    if collapse_paragraphs:
+        description = description.replace('\\N', '\n')
+    else:
+        description = description.replace('\\N', '\n\n')
     
-    return doc
+    return description
 
 
 class Styler:
