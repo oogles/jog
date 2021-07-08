@@ -194,7 +194,8 @@ class SimpleTask(BaseTask):
         else:
             cmd = self.task
         
-        self.cli(cmd)
+        if cmd:
+            self.cli(cmd)
 
 
 class Task(BaseTask):
