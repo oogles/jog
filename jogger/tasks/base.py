@@ -271,7 +271,7 @@ class Task(BaseTask):
         Depending on the type of task (string, function, or class based),
         common arguments of the source task will be propagated automatically,
         including (where relevant):
-        ``-v``/``--verbosity``, ``--stdout``, ``--stderr``, and ``--no-color``.
+        ``--stdout``, ``--stderr``, ``--no-color``, and ``-v``/``--verbosity``.
         
         :param task_name: The task name as a string.
         :param args: Extra task arguments, as individual strings.

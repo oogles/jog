@@ -22,7 +22,7 @@ Tasks that are defined as either :doc:`functions <func_tasks>` or :doc:`classes 
 
 Using these objects is preferred over more direct methods - such as ``print()`` - for several reasons.
 
-The first is consistency. By default, these ``stdout``/``stderr`` objects are light wrappers around the system's standard output and error streams, respectively. But, at least in the case of class-based tasks, they can represent other output streams as well - such as a log file. By using the provided proxy objects, a task can write its output without concerning itself over the nature of the stream it is writing to, and with the knowledge that the output will be redirected if and when it is appropriate.
+The first is consistency. By default, these ``stdout``/``stderr`` objects are light wrappers around the system's standard output and error streams, respectively. But they can represent other output streams as well - such as a log file. By using the provided proxy objects, a task can write its output without concerning itself over the nature of the stream it is writing to, and with the knowledge that the output will be redirected if and when it is appropriate.
 
 Another reason is the helpers they provide for *styling* the output, to improve readability or highlight important messages. This is discussed in depth below.
 
@@ -160,7 +160,7 @@ A custom styler can then be used in a similar fashion to the default ones:
 
 :class:`Styler` instances, whether the default ones or when using a custom subclass, will automatically detect when the output stream doesn't support styling and silently ignore it. This allows a common API to be used regardless of the nature of the output stream being written to. Examples of such streams include command line environments that don't support ANSI graphics codes, or when redirecting output to a file.
 
-However, for class-based tasks, the ``--no-color`` :ref:`default command line argument <class_tasks_default_args>` can be used to *force* styling to be ignored and all output be in plain text. The default ``Styler`` instances respect this argument automatically, but if creating an instance manually (e.g. when using a custom subclass), you have the responsibility of making the styler aware of this preference. This is done using the ``no_color`` argument to the :class:`Styler` constructor. You may have noticed it used in the above example of using a custom styler in a class-based task:
+However, the ``--no-color`` default command line argument available to function-based and class-based tasks can be used to *force* styling to be ignored and all output be in plain text. The default ``Styler`` instances respect this argument automatically, but if creating an instance manually (e.g. when using a custom subclass), you have the responsibility of making the styler aware of this preference. This is done using the ``no_color`` argument to the :class:`Styler` constructor. You may have noticed it used in the above example of using a custom styler in a class-based task:
 
 .. code-block:: python
 

@@ -32,7 +32,7 @@ Keys in the ``jog.py`` file's ``tasks`` dictionary form each task's name, and va
         'test': 'coverage run python manage.py test'
     }
 
-Alternatively, a task can be a Python function that *returns* a command to execute on the command line. This can be useful if the command is more complex to construct or depends on dynamic values:
+Alternatively, a task can be a Python function that either simply runs some Python code, or *returns* a command to execute on the command line. This can be useful to construct more complex commands, such as those depending on dynamic values:
 
 .. code-block:: python
 

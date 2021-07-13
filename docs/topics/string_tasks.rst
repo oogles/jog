@@ -22,7 +22,13 @@ However, there are disadvantages as well. Tasks defined as strings are executed 
     jog test myproject.tests.test_module  # bad
 
 
-Getting help
-============
+.. _string_tasks_default_args:
 
-The only command line argument accepted by tasks defined as strings is ``-h``/``--help``, which displays help text for the task. The help text for such tasks is very minimal, and cannot be customised. It simply states what the task does (i.e. it outputs the command string itself).
+Default arguments
+=================
+
+String-based tasks accept a minimal set of default arguments:
+
+* ``-h``/``--help``: Display the task's help output. For string-based tasks, this is very minimal, and cannot be customised. It simply states what the task does (i.e. it outputs the command string itself).
+* ``--stderr``: The output stream to use for error messages. Defaults to the system's ``stderr`` stream. Can be redirected, e.g. to a file: ``jog test --stderr /home/myuser/logs/test/err.log``.
+* ``--stdout``: The output stream to use for general messages. Defaults to the system's ``stdout`` stream. Can be redirected, e.g. to a file: ``jog test --stdout /home/myuser/logs/test/out.log``.
