@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+1.1.1 (2021-07-16)
+------------------
+
+* Fixed bug in TaskProxy when generating a task description, causing the standalone ``jog`` command (called with no arguments) to crash.
+
 1.1.0 (2021-07-14)
 ------------------
 

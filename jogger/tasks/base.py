@@ -371,7 +371,7 @@ class TaskProxy:
         self.stderr = stderr
         self.argv = argv
     
-    def output_description(self):
+    def get_description(self, styler):
         """
         Return a description of this task, suitable for display in a listing
         of available tasks.
