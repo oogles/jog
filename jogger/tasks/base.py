@@ -391,4 +391,8 @@ class TaskProxy:
         else:
             task = self.task(*common_args)
         
-        task.execute()
+        # Invoke handle() instead of execute() as the latter catches TaskError
+        # and calls sys.exit(). This leaves the calling task the option to
+        # manually handle such exceptions if necessary, and its own execute()
+        # method will deal with them if left uncaught.
+        task.handle(*task.args, **task.kwargs)
