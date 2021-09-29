@@ -382,7 +382,7 @@ class TaskProxy:
         
         return f'{name}: {description}\n    See "{self.prog} --help" for usage details'
     
-    def execute(self):
+    def execute(self, passive=True):
         
         common_args = (self.prog, self.name, self.conf, self.stdout, self.stderr, self.argv)
         
@@ -391,8 +391,13 @@ class TaskProxy:
         else:
             task = self.task(*common_args)
         
-        # Invoke handle() instead of execute() as the latter catches TaskError
-        # and calls sys.exit(). This leaves the calling task the option to
-        # manually handle such exceptions if necessary, and its own execute()
-        # method will deal with them if left uncaught.
-        task.handle(*task.args, **task.kwargs)
+        # Invoke handle() instead of execute() when in "passive" mode. This
+        # is typically for when calling from within another task, as execute()
+        # catches TaskError and calls sys.exit(), which may not be desirable
+        # for a nested task. Passive mode leaves the calling task the option
+        # of manually handling such exceptions if necessary, and its own
+        # execute() method will deal with them if left uncaught.
+        if passive:
+            task.handle(*task.args, **task.kwargs)
+        else:
+            task.execute()
