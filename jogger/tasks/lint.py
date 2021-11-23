@@ -37,6 +37,7 @@ ENDINGS = {
 
 DEFAULT_GOOD_ENDING = 'LF'
 DEFAULT_MAX_FILESIZE = 1024 * 1024  # 1MB in bytes
+DEFAULT_SYSCHECK_FAIL_LEVEL = 'WARNING'
 
 
 def listify_multiline_string(string):
@@ -254,7 +255,8 @@ class LintTask(Task):
         if HAS_DJANGO:
             self.stdout.write('Running Django system checks...', style='label')
             
-            result = self.cli('python manage.py check --fail-level WARNING')
+            fail_level = self.settings.get('syschecks_fail_level', DEFAULT_SYSCHECK_FAIL_LEVEL)
+            result = self.cli(f'python manage.py check --fail-level {fail_level}')
             
             self.outcomes['syschecks'] = result.returncode == 0
             self.stdout.write('')  # newline
