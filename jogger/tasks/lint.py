@@ -65,7 +65,8 @@ class LintTask(Task):
         ('python', '-p', 'Perform linting of Python code.'),
         ('fable', '-f', 'Find all bad line endings.'),
         ('bandit', '-b', 'Perform a Bandit security scan.'),
-        ('migrations', '-m', 'Perform makemigrations dry-run.')
+        ('migrations', '-m', 'Perform makemigrations dry-run.'),
+        ('syschecks', '-c', 'Run Django system checks.'),
     ]
     
     def __init__(self, *args, **kwargs):
@@ -242,4 +243,18 @@ class LintTask(Task):
             result = self.cli('python manage.py makemigrations --dry-run --check')
             
             self.outcomes['migrations'] = result.returncode == 0
+            self.stdout.write('')  # newline
+    
+    def handle_syschecks(self, explicit):
+        
+        if explicit and not HAS_DJANGO:
+            self.stderr.write('Cannot run system checks: Django is not available.')
+            return
+        
+        if HAS_DJANGO:
+            self.stdout.write('Running Django system checks...', style='label')
+            
+            result = self.cli('python manage.py check --fail-level WARNING')
+            
+            self.outcomes['syschecks'] = result.returncode == 0
             self.stdout.write('')  # newline
