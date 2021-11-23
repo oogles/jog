@@ -1,10 +1,17 @@
 Change Log
 ==========
 
+1.2.0 (unreleased)
+------------------
+
+* Updated ``LintTask`` to include a step for running Django system checks.
+* Updated ``UpdateTask`` to use Django 3.1's command to detect unapplied migrations.
+* Improved ``TaskProxy`` to allow better handling of errors in nested tasks.
+
 1.1.1 (2021-07-16)
 ------------------
 
-* Fixed bug in TaskProxy when generating a task description, causing the standalone ``jog`` command (called with no arguments) to crash.
+* Fixed bug in ``TaskProxy`` when generating a task description, causing the standalone ``jog`` command (called with no arguments) to crash.
 
 1.1.0 (2021-07-14)
 ------------------
