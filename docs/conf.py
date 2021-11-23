@@ -23,7 +23,7 @@ copyright = '2021, Alex Church'
 author = 'Alex Church'
 
 # The full version, including alpha/beta/rc tags
-release = '1.2.0a2'
+release = '1.2.0a3'
 version = '1.2'
 
 
