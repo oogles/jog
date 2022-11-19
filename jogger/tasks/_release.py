@@ -96,27 +96,31 @@ class ReleaseTask(Task):
     def handle(self, *args, **options):
         
         current_branch_name = self.verify_state()
-
+        
         labeller = self.styler.label
         confirmation = input(
-            f'Confirm moving from {labeller(self.current_version)} to '
+            f'\nConfirm moving from {labeller(self.current_version)} to '
             f'{labeller(self.new_version)} (Y/n)? '
         )
         if confirmation.lower() != 'y':
             sys.exit(0)
-
+        
         branch_name = self.create_branch(current_branch_name)
         self.bump_version()
         self.commit_and_tag(branch_name)
-        self.do_build()
+        
+        if self.settings.getboolean('pypi_build'):
+            self.do_build()
         
         self.stdout.write('\nDone!', style='label')
         
         self.show_merge_instructions(branch_name)
     
-    def verify_state(self):
+    def _verify_pypi(self):
         
-        self.stdout.write('Verifying state...', style='label')
+        if not self.settings.getboolean('pypi_build'):
+            self.stdout.write('PyPI build not enabled')
+            return
         
         # Ensure the necessary Python libraries to build and release the
         # package are available
@@ -137,6 +141,14 @@ class ReleaseTask(Task):
         
         if 'username' not in pypi_config or 'password' not in pypi_config:
             raise TaskError('The PyPI config file must contain at least a username and password.')
+        
+        self.stdout.write('PyPI build dependencies present')
+    
+    def verify_state(self):
+        
+        self.stdout.write('Verifying state...', style='label')
+        
+        self._verify_pypi()
         
         # Ensure there are no uncommitted changes
         check_result = self.cli('git diff-index --quiet HEAD --')
@@ -162,7 +174,7 @@ class ReleaseTask(Task):
         if int(log_result.stdout):
             raise TaskError('Unpushed changes detected.')
         
-        self.stdout.write('All good')
+        self.stdout.write('All changes committed/pushed')
         
         return branch_name
     
@@ -207,7 +219,7 @@ class ReleaseTask(Task):
             text = re.sub(pattern, f"version = '{new_major_version}'", text)
         
         return text
-
+    
     def bump_version(self):
         
         self.stdout.write('Bumping version', style='label')
