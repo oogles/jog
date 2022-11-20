@@ -37,6 +37,7 @@ class ReleaseTask(Task):
     )
     
     default_main_branch = 'main'
+    default_version_regex = r'(?m)^__version__ ?= ?(\'|")(.+)(\'|")'
     
     def add_arguments(self, parser):
         
@@ -84,7 +85,7 @@ class ReleaseTask(Task):
             file_contents = f.read()
             
             # (?m) enables multiline mode
-            pattern = r'(?m)^__version__ ?= ?(\'|")(.+)(\'|")'
+            pattern = self.settings.get('authoritative_version_regex', self.default_version_regex)
             match = re.search(pattern, file_contents)
             if not match:
                 raise TaskError(f'Authoritative version not found in {path}.')
