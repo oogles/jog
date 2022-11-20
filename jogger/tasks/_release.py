@@ -220,14 +220,12 @@ class ReleaseTask(Task):
         
         return text
     
-    def bump_version(self):
-        
-        self.stdout.write('Bumping version', style='label')
+    def get_bump_files(self):
         
         # Build a list of two-tuples, where each item tuple contains:
         # - the path to the file containing a version to be bumped
         # - a sequence of one or more "replacer" methods that will be passed
-        #   the files contents and should return them with the version updated
+        #   the files' contents and should return them with the version updated
         #   as necessary
         bumps = [
             (self.settings['authoritative_version_path'], (self._replace_version, ))
@@ -243,7 +241,17 @@ class ReleaseTask(Task):
             
             bumps.append((sphinx_conf_path, replacers))
         
-        for path, replacers in bumps:
+        return bumps
+    
+    def bump_version(self):
+        
+        self.stdout.write('Bumping version', style='label')
+        
+        all_paths = []
+        
+        for path, replacers in self.get_bump_files():
+            all_paths.append(path)
+            
             with open(path, 'r+') as f:
                 file_contents = f.read()
                 
@@ -260,7 +268,7 @@ class ReleaseTask(Task):
                 f.truncate()
                 f.write(file_contents)
         
-        paths_string = ' '.join(path for path, replacers in bumps)
+        paths_string = ' '.join(all_paths)
         
         self.cli(f'git --no-pager diff {paths_string}')
         
