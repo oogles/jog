@@ -1,7 +1,7 @@
 import configparser
 import re
 import sys
-from os.path import expanduser
+import os.path
 
 from .base import Task, TaskError
 
@@ -37,7 +37,13 @@ class ReleaseTask(Task):
     )
     
     default_main_branch = 'main'
+    default_major_version_format = None
+    default_release_branch_format = None
+    default_authoritative_version_path = '__init__.py'
+    default_sphinx_conf_path = './docs/conf.py'
     default_version_regex = r'(?m)^__version__ ?= ?(\'|")(.+)(\'|")'
+    
+    default_pypi_build = False
     
     def add_arguments(self, parser):
         
@@ -50,14 +56,19 @@ class ReleaseTask(Task):
         
         super().__init__(*args, **kwargs)
         
-        self.current_version = self.get_current_version()
+        self.authoritative_version_path = self.settings.get(
+            'authoritative_version_path',
+            self.default_authoritative_version_path
+        )
+        
+        self.current_version = self.get_current_version(self.authoritative_version_path)
         self.new_version = self.kwargs['version']
         
         self.current_major_version = None
         self.new_major_version = None
         self.release_branch_name = None
         
-        major_version_format = self.settings.get('major_version_format', None)
+        major_version_format = self.settings.get('major_version_format', self.default_major_version_format)
         if major_version_format:
             try:
                 self.current_major_version = re.search(major_version_format, self.current_version).group(0)
@@ -65,7 +76,7 @@ class ReleaseTask(Task):
             except AttributeError:
                 raise TaskError('Invalid major version format.')
         
-        release_branch_format = self.settings.get('release_branch_format', None)
+        release_branch_format = self.settings.get('release_branch_format', self.default_release_branch_format)
         if release_branch_format:
             try:
                 self.release_branch_name = release_branch_format.format(
@@ -75,11 +86,13 @@ class ReleaseTask(Task):
             except AttributeError:
                 raise TaskError('Invalid release branch format.')
     
-    def get_current_version(self):
+    def get_current_version(self, path):
         
-        path = self.settings.get('authoritative_version_path', None)
         if not path:
             raise TaskError('No path to a file containing the authoritative version is configured.')
+        
+        if not os.path.exists(path):
+            raise TaskError(f'File {path} does not exist. Need to set authoritative_version_path?')
         
         with open(path, 'r') as f:
             file_contents = f.read()
@@ -110,7 +123,7 @@ class ReleaseTask(Task):
         self.bump_version()
         self.commit_and_tag(branch_name)
         
-        if self.settings.getboolean('pypi_build'):
+        if self.settings.getboolean('pypi_build', self.default_pypi_build):
             self.do_build()
         
         self.stdout.write('\nDone!', style='label')
@@ -119,7 +132,7 @@ class ReleaseTask(Task):
     
     def _verify_pypi(self):
         
-        if not self.settings.getboolean('pypi_build'):
+        if not self.settings.getboolean('pypi_build', self.default_pypi_build):
             self.stdout.write('PyPI build not enabled')
             return
         
@@ -133,7 +146,7 @@ class ReleaseTask(Task):
         
         # Ensure a correct-looking .pypirc is present
         config_file = configparser.ConfigParser()
-        config_file.read(expanduser('~/.pypirc'))
+        config_file.read(os.path.expanduser('~/.pypirc'))
         
         try:
             pypi_config = config_file['pypi']
@@ -229,10 +242,10 @@ class ReleaseTask(Task):
         #   the files' contents and should return them with the version updated
         #   as necessary
         bumps = [
-            (self.settings['authoritative_version_path'], (self._replace_version, ))
+            (self.authoritative_version_path, (self._replace_version, ))
         ]
         
-        sphinx_conf_path = self.settings.get('sphinx_conf_path', None)
+        sphinx_conf_path = self.settings.get('sphinx_conf_path', self.default_sphinx_conf_path)
         if sphinx_conf_path:
             # The Sphinx conf potentially needs an update to the major version
             # as well as the release version
