@@ -146,7 +146,7 @@ class BaseTask:
             if not self.using_system_err:
                 kwargs['stderr'] = self.kwargs['stderr']
         
-        return subprocess.run(cmd, shell=True, **kwargs)
+        return subprocess.run(cmd, shell=True, **kwargs)  # noqa: S602
     
     def execute(self):
         """
@@ -247,7 +247,7 @@ class Task(BaseTask):
                 tmpfile.write(default)
                 tmpfile.flush()
             
-            subprocess.run([editor, tmpfile.name])
+            subprocess.run([editor, tmpfile.name])  # noqa: S603
             
             tmpfile.seek(0)
             content = tmpfile.read().strip()

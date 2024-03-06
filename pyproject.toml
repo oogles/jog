@@ -4,3 +4,18 @@ requires = [
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 79
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["A", "DJ", "FLY", "E", "F", "S", "W", "C90"]
+ignore = ["W293", "A003"]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 119
+max-doc-length = 119
+
+[tool.ruff.format]
+quote-style = "single"
