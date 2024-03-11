@@ -4,3 +4,29 @@ requires = [
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 79
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = [
+    "A", # flake8-builtins
+    "C90", # McCabe complexity
+    "DJ", # flake8-django
+    "E", # pycodestyle errors
+    "F", # pyflakes
+    "FLY", # flynt (static-join-to-f-string)
+    "S", # flake8-bandit (security)
+    "W", # pycodestyle warnings
+]
+ignore = [
+    "W293" # blank line contains whitespace
+]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 119
+max-doc-length = 119
+
+[tool.ruff.format]
+quote-style = "single"

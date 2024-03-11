@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'jogger'
-copyright = '2021, Alex Church'
+copyright = '2021, Alex Church'  # noqa: A001 (builtin shadowing)
 author = 'Alex Church'
 
 # The full version, including alpha/beta/rc tags

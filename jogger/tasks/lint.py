@@ -6,25 +6,19 @@ from jogger.utils.files import walk
 from .base import Task, TaskError
 
 try:
-    import flake8  # noqa
-    HAS_FLAKE8 = True
+    import ruff  # noqa: F401
+    HAS_RUFF = True
 except ImportError:
-    HAS_FLAKE8 = False
+    HAS_RUFF = False
 
 try:
-    import isort  # noqa
+    import isort  # noqa: F401
     HAS_ISORT = True
 except ImportError:
     HAS_ISORT = False
 
 try:
-    import bandit  # noqa
-    HAS_BANDIT = True
-except ImportError:
-    HAS_BANDIT = False
-
-try:
-    from django.core.management import call_command  # noqa
+    from django.core.management import call_command  # noqa: F401
     HAS_DJANGO = True
 except ImportError:
     HAS_DJANGO = False
@@ -57,15 +51,14 @@ class LintTask(Task):
     
     help = (
         'Lint the project. Automatically detects, and uses if found, isort and '
-        'flake8 for linting Python code, and bandit for finding common security '
-        'issues in Python code. Also runs fable (Find All Bad Line Endings) and '
-        'performs a dry-run of makemigrations (if Django is detected).'
+        'ruff for linting and finding common security issues in Python code. '
+        'Also runs fable (Find All Bad Line Endings) and performs a dry-run of '
+        'makemigrations (if Django is detected).'
     )
     
     steps = [
         ('python', '-p', 'Perform linting of Python code.'),
         ('fable', '-f', 'Find all bad line endings.'),
-        ('bandit', '-b', 'Perform a Bandit security scan.'),
         ('migrations', '-m', 'Perform makemigrations dry-run.'),
         ('syschecks', '-c', 'Run Django system checks.'),
     ]
@@ -126,8 +119,8 @@ class LintTask(Task):
     
     def handle_python(self, explicit):
         
-        if explicit and not HAS_ISORT and not HAS_FLAKE8:
-            self.stderr.write('Cannot lint python: Neither isort nor flake8 are available.')
+        if explicit and not HAS_ISORT and not HAS_RUFF:
+            self.stderr.write('Cannot lint python: Neither isort nor ruff are available.')
             return
         
         if HAS_ISORT:
@@ -136,10 +129,10 @@ class LintTask(Task):
             self.outcomes['isort'] = result.returncode == 0
             self.stdout.write('')  # newline
         
-        if HAS_FLAKE8:
-            self.stdout.write('Running flake8...', style='label')
-            result = self.cli('flake8 .')
-            self.outcomes['flake8'] = result.returncode == 0
+        if HAS_RUFF:
+            self.stdout.write('Running ruff...', style='label')
+            result = self.cli('ruff check .')
+            self.outcomes['ruff'] = result.returncode == 0
             self.stdout.write('')  # newline
     
     def _get_fable_excludes(self):
@@ -198,38 +191,6 @@ class LintTask(Task):
             self.stdout.write(f'Skipped {skipped} large files')
         
         self.outcomes['fable'] = result
-        self.stdout.write('')  # newline
-    
-    def handle_bandit(self, explicit):
-        
-        if not HAS_BANDIT:
-            if explicit:
-                self.stderr.write('Cannot run bandit: Package is not available.')
-            
-            return
-        
-        self.stdout.write('Running bandit...', style='label')
-        
-        cmd = 'bandit . -r'
-        
-        # Set the command's verbosity based on the verbosity level of the task
-        verbosity = self.kwargs['verbosity']
-        if verbosity < 2:
-            cmd = f'{cmd} -q'  # run in "quiet" mode
-        elif verbosity > 2:
-            cmd = f'{cmd} -v'  # run in "verbose" mode
-        
-        # Add any configured excludes
-        try:
-            excludes = self.settings['bandit_exclude']
-        except KeyError:
-            pass
-        else:
-            excludes = ','.join(listify_multiline_string(excludes))
-            cmd = f'{cmd} -x {excludes}'
-        
-        result = self.cli(cmd)
-        self.outcomes['bandit'] = result.returncode == 0
         self.stdout.write('')  # newline
     
     def handle_migrations(self, explicit):

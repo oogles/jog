@@ -13,7 +13,7 @@ class UpdateTask(Task):
         'collecting static files, and restarting the relevant services.'
     )
     
-    temp_requirements_dir = '/tmp'
+    temp_requirements_dir = '/tmp'  # noqa: S108
     default_branch_name = 'main'
     
     def add_arguments(self, parser):
