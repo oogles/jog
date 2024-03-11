@@ -36,12 +36,12 @@ Performs a number of "linting" operations to flag potential errors and style gui
 
 It includes the following steps:
 
-1. Lint Python code using `flake8 <https://github.com/PyCQA/flake8>`_ and `isort <https://github.com/PyCQA/isort>`_. Both programs will obey their respective configuration files if they are located in standard locations, e.g. in a ``setup.cfg`` file. Specifically, the following commands are executed in the project root directory (determined as the directory containing ``jog.py``):
+1. Lint Python code using `ruff <https://docs.astral.sh/ruff/>`_ and `isort <https://github.com/PyCQA/isort>`_. Both programs will obey their respective configuration files if they are located in standard locations, e.g. in a ``setup.cfg`` file. Specifically, the following commands are executed in the project root directory (determined as the directory containing ``jog.py``):
 
-    * ``flake8 .``
+    * ``ruff check .``
     * ``isort --check-only --diff .``
 
-  This step can be skipped by default by using the ``python = false`` setting. It will also be skipped automatically if neither ``flake8`` or ``isort`` are installed.
+  This step can be skipped by default by using the ``python = false`` setting. It will also be skipped automatically if neither ``ruff`` or ``isort`` are installed.
 
 2. Run FABLE (Find All Bad Line Endings), a custom script to ensure all relevant project files use consistent line endings. By default, it:
 
@@ -51,17 +51,7 @@ It includes the following steps:
 
   This step can be skipped by default by using the ``fable = false`` setting.
 
-3. Check Python code for potential security issues using the static analysis tool `bandit <https://github.com/PyCQA/bandit>`_. Specifically, one of the following commands is executed in the project root directory (determined as the directory containing ``jog.py``):
-
-    * ``bandit . -r -q`` (default - use "quiet" mode, only generating output if an issue is found)
-    * ``bandit . -r`` (at verbosity level ``2``)
-    * ``bandit . -r -v`` (at verbosity level ``3`` - use "verbose" mode)
-
-  The program will obey a ``.bandit`` configuration file if found, but excludes can also be added via the task setting ``bandit_exclude``.
-
-  This step can be skipped by default by using the ``bandit = false`` setting. It will also be skipped automatically if ``bandit`` is not installed.
-
-4. Perform a "dry run" of Django's ``makemigrations`` management command, ensuring no migrations get missed.
+3. Perform a "dry run" of Django's ``makemigrations`` management command, ensuring no migrations get missed.
 
   This step can be skipped by default by using the ``migrations = false`` setting. It will also be skipped automatically if Django is not installed.
 
@@ -72,7 +62,6 @@ Arguments
 
 * ``-p``/``--python``: Only run the Python linting step.
 * ``-f``/``--fable``: Only run the FABLE step.
-* ``-b``/``--bandit``: Only run the ``bandit`` security scan step.
 * ``-m``/``--migrations``: Only run the migration check step.
 
 These arguments can be chained to specify any subset of these options, e.g.::
@@ -89,16 +78,12 @@ The following is an example config file section containing all available config 
     [jogger:lint]
     python = false      # exclude the Python linting step by default
     fable = false       # exclude the FABLE step by default
-    bandit = false      # exclude the bandit step by default
     migrations = false  # exclude the migration check step by default
 
     fable_good_endings = CRLF  # one of: LF, CR, CRLF (default: LF)
     fable_max_filesize = 5242880  # 5MB, in bytes (default: 1MB)
     fable_exclude =
         ./docs/_build
-
-    bandit_exclude =
-        tests
 
 
 ``TestTask``
