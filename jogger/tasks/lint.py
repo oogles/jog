@@ -52,8 +52,8 @@ class LintTask(Task):
     help = (
         'Lint the project. Automatically detects, and uses if found, isort and '
         'ruff for linting and finding common security issues in Python code. '
-        'Also runs fable (Find All Bad Line Endings) and performs a dry-run of '
-        'makemigrations (if Django is detected).'
+        'Also runs fable (Find All Bad Line Endings) and, if Django is detected, '
+        'runs system checks and performs a dry-run of makemigrations.'
     )
     
     steps = [
