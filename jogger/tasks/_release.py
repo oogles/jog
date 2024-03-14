@@ -1,7 +1,7 @@
 import configparser
+import os.path
 import re
 import sys
-import os.path
 
 from .base import Task, TaskError
 
