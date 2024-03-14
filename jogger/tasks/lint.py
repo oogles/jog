@@ -202,7 +202,7 @@ class LintTask(Task):
         if HAS_DJANGO:
             self.stdout.write('Checking for missing migrations...', style='label')
             
-            result = self.cli('python manage.py makemigrations --dry-run --check')
+            result = self.cli('python manage.py makemigrations --dry-run --check --skip-checks')
             
             self.outcomes['migrations'] = result.returncode == 0
             self.stdout.write('')  # newline
