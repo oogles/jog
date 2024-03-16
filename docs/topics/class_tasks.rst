@@ -126,37 +126,33 @@ Using settings
 
 If your project :doc:`defines a config file <config>`, and it contains a section for the task being executed, the settings within that section are available to a class-based task via the :attr:`~Task.settings` attribute. This allows common tasks to be shared among multiple projects, while still allowing them to be configured as necessary for each one.
 
-.. important::
-
-    The attribute itself is a *dictionary-like* collection of the settings listed in the config file, but it is **not** a true dictionary. See an explanation of the differences in the :ref:`config file documentation <config_task_settings>`.
-
 Re-working the above example of the ``test`` task so that the use of `coverage.py <https://coverage.readthedocs.io/>`_ is based on a project-level setting might look like:
 
-.. code-block:: ini
-
-    # setup.cfg
-    [jogger:test]
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.test]
     coverage = true
 
 .. code-block:: python
-
+    
     # jog.py
     from jogger.tasks import Task
-
-
+    
+    
     class TestTask(Task):
-
+        
         help = 'Run the Django test suite, optionally with coverage.py.'
-
+        
         def handle(self, *args, **options):
-
+            
             command = 'python manage.py test'
-
-            if self.settings.getboolean('coverage', True):
+            
+            if self.settings.get('coverage', True):
                 command = f'coverage run {command}'
-
+            
             self.cli(command)
-
+    
     tasks = {
         'test': TestTask
     }

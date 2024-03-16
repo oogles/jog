@@ -16,11 +16,7 @@ Tasks
 
     .. attribute:: settings
 
-        The object containing any settings for this task that were included in a project-level :doc:`config file <../topics/config>`.
-
-        .. important::
-
-            The settings-object is *dictionary-like*, but it is **not** a true dictionary. See an explanation of the differences in the :ref:`config file documentation <config_task_settings>`.
+        The dictionary containing any settings for this task that were included in a supported :doc:`config file <../topics/config>`.
 
     .. attribute:: project_dir
 

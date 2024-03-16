@@ -36,7 +36,7 @@ Performs a number of "linting" operations to flag potential errors and style gui
 
 It includes the following steps:
 
-1. Lint Python code using `ruff <https://docs.astral.sh/ruff/>`_ and `isort <https://github.com/PyCQA/isort>`_. Both programs will obey their respective configuration files if they are located in standard locations, e.g. in a ``setup.cfg`` file. Specifically, the following commands are executed in the project root directory (determined as the directory containing ``jog.py``):
+1. Lint Python code using `ruff <https://docs.astral.sh/ruff/>`_ and `isort <https://github.com/PyCQA/isort>`_. Both programs will obey their respective configuration files if they are located in standard locations. Specifically, the following commands are executed in the project root directory (determined as the directory containing ``jog.py``):
 
     * ``ruff check .``
     * ``isort --check-only --diff .``
@@ -78,19 +78,21 @@ These arguments can be chained to specify any subset of these options, e.g.::
 Settings
 --------
 
-The following is an example config file section containing all available config options and examples of their use. It assumes ``LintTask`` has been given the name "lint" in the ``jog.py`` file.
+The following is an example config file table containing all available config options and examples of their use. It assumes ``LintTask`` has been given the name "lint" in the ``jog.py`` file.
 
-.. code-block:: ini
-
-    [jogger:lint]
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.lint]
     python = false      # exclude the Python linting step by default
     fable = false       # exclude the FABLE step by default
     migrations = false  # exclude the migration check step by default
 
-    fable_good_endings = CRLF  # one of: LF, CR, CRLF (default: LF)
+    fable_good_endings = "CRLF"   # one of: LF, CR, CRLF (default: LF)
     fable_max_filesize = 5242880  # 5MB, in bytes (default: 1MB)
-    fable_exclude =
-        ./docs/_build
+    fable_exclude = [
+        "./docs/_build"
+    ]
 
 
 ``TestTask``
@@ -134,9 +136,10 @@ The task can be run in a "quick" mode by passing the ``--quick`` or ``-q`` flags
 
 This mode skips any code coverage analysis and reporting, just running the test suite. By default, it also passes the ``--parallel`` argument to the ``manage.py test`` command. Since this argument is not always desirable, this behaviour can be disabled using the ``quick_parallel`` setting. Assuming a task name of "test":
 
-.. code-block:: ini
-
-    [jogger:test]
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.test]
     quick_parallel = false
 
 See the `Django documentation <https://docs.djangoproject.com/en/stable/ref/django-admin/#cmdoption-test-parallel>`_ on the ``--parallel`` argument for more information.
@@ -190,10 +193,11 @@ If ``TestTask`` generates a HTML coverage report, it also prints a ``file://`` U
 
 The ``report_path_swap`` setting can be used to correct this. As long as the generated document also exists on the host (i.e. it is generated on a path that is kept in sync between the host and guest file systems), this setting allows replacing the guest-specific portion of the ``file://`` URL with the equivalent host-specific value. It should use ``>`` as the delimiter to map the guest value to the host value:
 
-.. code-block:: ini
-
-    [jogger:test]
-    report_path_swap = /opt/app/src/ > /home/username/projectname/
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.test]
+    report_path_swap = "/opt/app/src/ > /home/username/projectname/"
 
 .. tip::
 
@@ -219,13 +223,14 @@ Arguments
 Settings
 --------
 
-The following is an example config file section containing all available config options and examples of their use. It assumes ``TestTask`` has been given the name "test" in the ``jog.py`` file.
+The following is an example config file table containing all available config options and examples of their use. It assumes ``TestTask`` has been given the name "test" in the ``jog.py`` file.
 
-.. code-block:: ini
-
-    [jogger:test]
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.test]
     quick_parallel = false  # default: true
-    report_path_swap = /opt/app/src/ > /home/username/projectname/
+    report_path_swap = "/opt/app/src/ > /home/username/projectname/"
 
 
 ``DocsTask``
@@ -245,10 +250,11 @@ Use with virtual machines
 
 The ``index_path_swap`` setting can be used to correct this. As long as the generated document also exists on the host (i.e. it is generated on a path that is kept in sync between the host and guest file systems), this setting allows replacing the guest-specific portion of the ``file://`` URL with the equivalent host-specific value. It should use ``>`` as the delimiter to map the guest value to the host value:
 
-.. code-block:: ini
-
-    [jogger:docs]
-    index_path_swap = /opt/app/src/ > /home/username/projectname/
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.docs]
+    index_path_swap = "/opt/app/src/ > /home/username/projectname/"
 
 .. tip::
 
@@ -265,12 +271,13 @@ Arguments
 Settings
 --------
 
-The following is an example config file section containing all available config options and examples of their use. It assumes ``DocsTask`` has been given the name "docs" in the ``jog.py`` file.
+The following is an example config file table containing all available config options and examples of their use. It assumes ``DocsTask`` has been given the name "docs" in the ``jog.py`` file.
 
-.. code-block:: ini
-
-    [jogger:docs]
-    index_path_swap = /opt/app/src/ > /home/username/projectname/
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.docs]
+    index_path_swap = "/opt/app/src/ > /home/username/projectname/"
 
 
 ``UpdateTask``
@@ -348,9 +355,10 @@ Arguments
 Settings
 --------
 
-The following is an example config file section containing all available config options and examples of their use. It assumes ``UpdateTask`` has been given the name "update" in the ``jog.py`` file.
+The following is an example config file table containing all available config options and examples of their use. It assumes ``UpdateTask`` has been given the name "update" in the ``jog.py`` file.
 
-.. code-block:: ini
+.. code-block:: toml
 
-    [jogger:update]
-    branch_name = trunk  # the branch name to pull from (default: main)
+    # pyproject.toml
+    [tool.jogger.update]
+    branch_name = "trunk"  # the branch name to pull from (default: main)

@@ -36,7 +36,7 @@ In ``jog.py``, these tasks might look like:
 
 Task functions accept the following arguments:
 
-* ``settings``: A dictionary-like collection of the settings defined for the task in a config file, as :ref:`explained below <func_tasks_settings>`.
+* ``settings``: A dictionary of the settings defined for the task in a config file, as :ref:`explained below <func_tasks_settings>`.
 * ``stdout``: A proxy for the standard output stream, offering more control over output from the task. See :doc:`output`.
 * ``stderr``: A proxy for the standard error stream, offering more control over output from the task. See :doc:`output`.
 
@@ -58,16 +58,12 @@ Using settings
 
 As noted above, task functions accept a ``settings`` argument. Your project can define a config file, as explained further in the :doc:`config` documentation. If that config file contains a section for the task being executed, the settings within that section will be passed through to the task using the ``settings`` argument. This allows common tasks to be shared among multiple projects, while still allowing them to be configured as necessary for each one.
 
-.. important::
-
-    The argument itself is a *dictionary-like* collection of the settings listed in the config file, but it is **not** a true dictionary. See an explanation of the differences in the :ref:`config file documentation <config_task_settings>`.
-
 Re-working the above example so that the use of `coverage.py <https://coverage.readthedocs.io/>`_ is based on a project-level setting might look like:
 
-.. code-block:: ini
+.. code-block:: toml
 
-    # setup.cfg
-    [jogger:test]
+    # pyproject.toml
+    [tool.jogger.test]
     coverage = true
 
 .. code-block:: python
@@ -78,7 +74,7 @@ Re-working the above example so that the use of `coverage.py <https://coverage.r
         Run the Django test suite, optionally with coverage.py.
         """
 
-        if settings.getboolean('coverage', True):
+        if settings.get('coverage', True):
             return 'coverage run python manage.py test'
         else:
             return 'python manage.py test'
