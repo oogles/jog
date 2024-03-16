@@ -123,7 +123,7 @@ class ReleaseTask(Task):
         self.bump_version()
         self.commit_and_tag(branch_name)
         
-        if self.settings.getboolean('pypi_build', self.default_pypi_build):
+        if self.settings.get('pypi_build', self.default_pypi_build):
             self.do_build()
         
         self.stdout.write('\nDone!', style='label')
@@ -132,7 +132,7 @@ class ReleaseTask(Task):
     
     def _verify_pypi(self):
         
-        if not self.settings.getboolean('pypi_build', self.default_pypi_build):
+        if not self.settings.get('pypi_build', self.default_pypi_build):
             self.stdout.write('PyPI build not enabled')
             return
         

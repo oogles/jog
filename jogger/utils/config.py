@@ -2,15 +2,55 @@ import configparser
 import os
 from importlib.util import module_from_spec, spec_from_file_location
 
+try:
+    import tomllib
+except ImportError:
+    tomllib = None
+
 from jogger.exceptions import TaskDefinitionError
 
 from .files import find_file
 
 MAX_CONFIG_FILE_SEARCH_DEPTH = 8
 JOG_FILE_NAME = 'jog.py'
-CONFIG_FILE_NAME = 'setup.cfg'
-ENV_CONFIG_FILE_NAME = 'joggerenv.cfg'
-CONFIG_BLOCK_PREFIX = 'jogger'
+CONFIG_TABLE = 'jogger'
+
+
+def get_toml_config(file_path, table):
+    
+    with open(file_path, 'rb') as f:
+        config = tomllib.load(f)
+    
+    for t in table.split('.'):  # support nested tables
+        try:
+            config = config[t]
+        except KeyError:
+            return {}
+    
+    return config
+
+
+def get_ini_config(file_path, section):
+    
+    config = configparser.ConfigParser()
+    config.read(file_path)
+    
+    try:
+        config = config[section]
+    except KeyError:
+        return {}
+    
+    config_dict = dict(config)
+    
+    # Auto-convert boolean and list values
+    for k, v in config_dict.items():
+        if v.lower() in ('true', 'false'):
+            config_dict[k] = config.getboolean(k)
+        elif '\n' in v:
+            v = [i.strip() for i in v.splitlines()]
+            config_dict[k] = list(filter(None, v))
+    
+    return config_dict
 
 
 class JogConf:
@@ -37,8 +77,24 @@ class JogConf:
         
         self.project_dir = project_dir
         self.jog_file_path = jog_file_path
-        self.config_file_path = os.path.join(project_dir, CONFIG_FILE_NAME)
-        self.env_config_file_path = os.path.join(project_dir, ENV_CONFIG_FILE_NAME)
+        
+        # Define paths to accepted config files, and the prefixes for the table
+        # within each file, to which the name of the task will be added, that
+        # contains the task settings.
+        self.config_files = [
+            (os.path.join(project_dir, 'pyproject.toml'), f'tool.{CONFIG_TABLE}.'),
+            (os.path.join(project_dir, 'setup.cfg'), f'{CONFIG_TABLE}:')
+        ]
+        
+        # Define paths to accepted environment-specific config files, and the
+        # prefixes for the table within each file, to which the name of the
+        # task will be added, that contains the task settings. Being
+        # jogger-specific (as opposed to project-wide), tables don't
+        # necessarily need to be prefixed.
+        self.env_config_files = [
+            (os.path.join(project_dir, 'joggerenv.toml'), ''),
+            (os.path.join(project_dir, 'joggerenv.cfg'), f'{CONFIG_TABLE}:')
+        ]
     
     def get_tasks(self):
         """
@@ -61,21 +117,32 @@ class JogConf:
     def get_task_settings(self, task_name):
         """
         Locate any config file/s in the project directory, parse the file/s and
-        return a collection of the settings corresponding to ``task_name``. If
-        no such settings exist, return an empty collection.
+        return a dictionary of the settings corresponding to ``task_name``. If
+        no such settings exist, return an empty dictionary.
         
-        :return: The settings collection for the given task, as a
-            ``configparser.SectionProxy`` object.
+        :return: The settings for the given task, as a dictionary.
         """
         
-        config_file = configparser.ConfigParser()
-        config_file.read((self.config_file_path, self.env_config_file_path))
+        settings = {}
         
-        section = f'{CONFIG_BLOCK_PREFIX}:{task_name}'
+        # Look first for project-wide config files, then for
+        # environment-specific ones
+        config_files_lists = [self.config_files, self.env_config_files]
         
-        # If the section does not exist, add a dummy one. This allows this
-        # method to always return a value of a consistent type.
-        if not config_file.has_section(section):
-            config_file.add_section(section)
+        for file_list in config_files_lists:
+            for path, table_prefix in file_list:
+                if os.path.exists(path):
+                    ext = os.path.splitext(path)[-1]
+                    
+                    if ext == '.toml' and tomllib:
+                        config = get_toml_config(path, f'{table_prefix}{task_name}')
+                        if config:
+                            settings.update(config)
+                            break
+                    elif ext != '.toml':  # assume a configparser-compatible format
+                        config = get_ini_config(path, f'{table_prefix}{task_name}')
+                        if config:
+                            settings.update(config)
+                            break
         
-        return config_file[section]
+        return settings

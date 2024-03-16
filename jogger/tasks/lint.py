@@ -34,19 +34,6 @@ DEFAULT_MAX_FILESIZE = 1024 * 1024  # 1MB in bytes
 DEFAULT_SYSCHECK_FAIL_LEVEL = 'WARNING'
 
 
-def listify_multiline_string(string):
-    """
-    Return a list constructed by splitting the given multiline string,
-    stripping whitespace, and filtering out empty values.
-    
-    :param string: The multiline string to convert into a list.
-    :return: The resulting list.
-    """
-    
-    result = [i.strip() for i in string.splitlines()]
-    return filter(None, result)
-
-
 class LintTask(Task):
     
     help = (
@@ -91,7 +78,7 @@ class LintTask(Task):
             # disabled via the project settings file
             if options[f'do_{step}']:
                 explicit_steps.append(step)
-            elif settings.getboolean(step, fallback=True):
+            elif settings.get(step, True):
                 implicit_steps.append(step)
         
         if explicit_steps:
@@ -142,11 +129,9 @@ class LintTask(Task):
         
         # Add any configured excludes
         try:
-            extra_excludes = self.settings['fable_exclude']
+            excludes.update(self.settings['fable_exclude'])
         except KeyError:
             pass
-        else:
-            excludes.update(listify_multiline_string(extra_excludes))
         
         return excludes
     
