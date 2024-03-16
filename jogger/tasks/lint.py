@@ -31,6 +31,7 @@ ENDINGS = {
 
 DEFAULT_GOOD_ENDING = 'LF'
 DEFAULT_MAX_FILESIZE = 1024 * 1024  # 1MB in bytes
+DEFAULT_SYSCHECK_FAIL_LEVEL = 'WARNING'
 
 
 def listify_multiline_string(string):
@@ -51,14 +52,15 @@ class LintTask(Task):
     help = (
         'Lint the project. Automatically detects, and uses if found, isort and '
         'ruff for linting and finding common security issues in Python code. '
-        'Also runs fable (Find All Bad Line Endings) and performs a dry-run of '
-        'makemigrations (if Django is detected).'
+        'Also runs fable (Find All Bad Line Endings) and, if Django is detected, '
+        'runs system checks and performs a dry-run of makemigrations.'
     )
     
     steps = [
         ('python', '-p', 'Perform linting of Python code.'),
         ('fable', '-f', 'Find all bad line endings.'),
-        ('migrations', '-m', 'Perform makemigrations dry-run.')
+        ('migrations', '-m', 'Perform makemigrations dry-run.'),
+        ('syschecks', '-c', 'Run Django system checks.'),
     ]
     
     def __init__(self, *args, **kwargs):
@@ -200,7 +202,22 @@ class LintTask(Task):
         if HAS_DJANGO:
             self.stdout.write('Checking for missing migrations...', style='label')
             
-            result = self.cli('python manage.py makemigrations --dry-run --check')
+            result = self.cli('python manage.py makemigrations --dry-run --check --skip-checks')
             
             self.outcomes['migrations'] = result.returncode == 0
+            self.stdout.write('')  # newline
+    
+    def handle_syschecks(self, explicit):
+        
+        if explicit and not HAS_DJANGO:
+            self.stderr.write('Cannot run system checks: Django is not available.')
+            return
+        
+        if HAS_DJANGO:
+            self.stdout.write('Running Django system checks...', style='label')
+            
+            fail_level = self.settings.get('syschecks_fail_level', DEFAULT_SYSCHECK_FAIL_LEVEL)
+            result = self.cli(f'python manage.py check --fail-level {fail_level}')
+            
+            self.outcomes['syschecks'] = result.returncode == 0
             self.stdout.write('')  # newline

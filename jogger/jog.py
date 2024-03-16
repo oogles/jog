@@ -65,7 +65,7 @@ def main(argv=None):
             stderr.write(f'Unknown task "{task_name}".')
             sys.exit(1)
         
-        task.execute()
+        task.execute(passive=False)
     elif not tasks:
         stdout.write('No tasks defined.')
     else:

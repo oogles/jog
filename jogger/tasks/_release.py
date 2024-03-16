@@ -1,7 +1,7 @@
 import configparser
+import os.path
 import re
 import sys
-from os.path import expanduser
 
 from .base import Task, TaskError
 
@@ -37,6 +37,13 @@ class ReleaseTask(Task):
     )
     
     default_main_branch = 'main'
+    default_major_version_format = None
+    default_release_branch_format = None
+    default_authoritative_version_path = '__init__.py'
+    default_sphinx_conf_path = './docs/conf.py'
+    default_version_regex = r'(?m)^__version__ ?= ?(\'|")(.+)(\'|")'
+    
+    default_pypi_build = False
     
     def add_arguments(self, parser):
         
@@ -49,14 +56,19 @@ class ReleaseTask(Task):
         
         super().__init__(*args, **kwargs)
         
-        self.current_version = self.get_current_version()
+        self.authoritative_version_path = self.settings.get(
+            'authoritative_version_path',
+            self.default_authoritative_version_path
+        )
+        
+        self.current_version = self.get_current_version(self.authoritative_version_path)
         self.new_version = self.kwargs['version']
         
         self.current_major_version = None
         self.new_major_version = None
         self.release_branch_name = None
         
-        major_version_format = self.settings.get('major_version_format', None)
+        major_version_format = self.settings.get('major_version_format', self.default_major_version_format)
         if major_version_format:
             try:
                 self.current_major_version = re.search(major_version_format, self.current_version).group(0)
@@ -64,7 +76,7 @@ class ReleaseTask(Task):
             except AttributeError:
                 raise TaskError('Invalid major version format.')
         
-        release_branch_format = self.settings.get('release_branch_format', None)
+        release_branch_format = self.settings.get('release_branch_format', self.default_release_branch_format)
         if release_branch_format:
             try:
                 self.release_branch_name = release_branch_format.format(
@@ -74,17 +86,19 @@ class ReleaseTask(Task):
             except AttributeError:
                 raise TaskError('Invalid release branch format.')
     
-    def get_current_version(self):
+    def get_current_version(self, path):
         
-        path = self.settings.get('authoritative_version_path', None)
         if not path:
             raise TaskError('No path to a file containing the authoritative version is configured.')
+        
+        if not os.path.exists(path):
+            raise TaskError(f'File {path} does not exist. Need to set authoritative_version_path?')
         
         with open(path, 'r') as f:
             file_contents = f.read()
             
             # (?m) enables multiline mode
-            pattern = r'(?m)^__version__ ?= ?(\'|")(.+)(\'|")'
+            pattern = self.settings.get('authoritative_version_regex', self.default_version_regex)
             match = re.search(pattern, file_contents)
             if not match:
                 raise TaskError(f'Authoritative version not found in {path}.')
@@ -96,27 +110,31 @@ class ReleaseTask(Task):
     def handle(self, *args, **options):
         
         current_branch_name = self.verify_state()
-
+        
         labeller = self.styler.label
         confirmation = input(
-            f'Confirm moving from {labeller(self.current_version)} to '
+            f'\nConfirm moving from {labeller(self.current_version)} to '
             f'{labeller(self.new_version)} (Y/n)? '
         )
         if confirmation.lower() != 'y':
             sys.exit(0)
-
+        
         branch_name = self.create_branch(current_branch_name)
         self.bump_version()
         self.commit_and_tag(branch_name)
-        self.do_build()
+        
+        if self.settings.getboolean('pypi_build', self.default_pypi_build):
+            self.do_build()
         
         self.stdout.write('\nDone!', style='label')
         
         self.show_merge_instructions(branch_name)
     
-    def verify_state(self):
+    def _verify_pypi(self):
         
-        self.stdout.write('Verifying state...', style='label')
+        if not self.settings.getboolean('pypi_build', self.default_pypi_build):
+            self.stdout.write('PyPI build not enabled')
+            return
         
         # Ensure the necessary Python libraries to build and release the
         # package are available
@@ -128,7 +146,7 @@ class ReleaseTask(Task):
         
         # Ensure a correct-looking .pypirc is present
         config_file = configparser.ConfigParser()
-        config_file.read(expanduser('~/.pypirc'))
+        config_file.read(os.path.expanduser('~/.pypirc'))
         
         try:
             pypi_config = config_file['pypi']
@@ -137,6 +155,14 @@ class ReleaseTask(Task):
         
         if 'username' not in pypi_config or 'password' not in pypi_config:
             raise TaskError('The PyPI config file must contain at least a username and password.')
+        
+        self.stdout.write('PyPI build dependencies present')
+    
+    def verify_state(self):
+        
+        self.stdout.write('Verifying state...', style='label')
+        
+        self._verify_pypi()
         
         # Ensure there are no uncommitted changes
         check_result = self.cli('git diff-index --quiet HEAD --')
@@ -162,7 +188,7 @@ class ReleaseTask(Task):
         if int(log_result.stdout):
             raise TaskError('Unpushed changes detected.')
         
-        self.stdout.write('All good')
+        self.stdout.write('All changes committed/pushed')
         
         return branch_name
     
@@ -207,21 +233,19 @@ class ReleaseTask(Task):
             text = re.sub(pattern, f"version = '{new_major_version}'", text)
         
         return text
-
-    def bump_version(self):
-        
-        self.stdout.write('Bumping version', style='label')
+    
+    def get_bump_files(self):
         
         # Build a list of two-tuples, where each item tuple contains:
         # - the path to the file containing a version to be bumped
         # - a sequence of one or more "replacer" methods that will be passed
-        #   the files contents and should return them with the version updated
+        #   the files' contents and should return them with the version updated
         #   as necessary
         bumps = [
-            (self.settings['authoritative_version_path'], (self._replace_version, ))
+            (self.authoritative_version_path, (self._replace_version, ))
         ]
         
-        sphinx_conf_path = self.settings.get('sphinx_conf_path', None)
+        sphinx_conf_path = self.settings.get('sphinx_conf_path', self.default_sphinx_conf_path)
         if sphinx_conf_path:
             # The Sphinx conf potentially needs an update to the major version
             # as well as the release version
@@ -231,7 +255,17 @@ class ReleaseTask(Task):
             
             bumps.append((sphinx_conf_path, replacers))
         
-        for path, replacers in bumps:
+        return bumps
+    
+    def bump_version(self):
+        
+        self.stdout.write('Bumping version', style='label')
+        
+        all_paths = []
+        
+        for path, replacers in self.get_bump_files():
+            all_paths.append(path)
+            
             with open(path, 'r+') as f:
                 file_contents = f.read()
                 
@@ -248,7 +282,7 @@ class ReleaseTask(Task):
                 f.truncate()
                 f.write(file_contents)
         
-        paths_string = ' '.join(path for path, replacers in bumps)
+        paths_string = ' '.join(all_paths)
         
         self.cli(f'git --no-pager diff {paths_string}')
         

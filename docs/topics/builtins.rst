@@ -51,7 +51,13 @@ It includes the following steps:
 
   This step can be skipped by default by using the ``fable = false`` setting.
 
-3. Perform a "dry run" of Django's ``makemigrations`` management command, ensuring no migrations get missed.
+3. Run the Django ``check`` management command to perform system checks.
+
+  The command is called with the ``--fail-level=WARNING`` argument by default, causing the step to be registered as a failure if any warnings are reported. The level can be configured using the ``syschecks_fail_level`` setting, e.g. ``syschecks_fail_level = ERROR``.
+
+  This step can be skipped by default by using the ``syschecks = false`` setting. It will also be skipped automatically if Django is not installed.
+
+4. Perform a "dry run" of Django's ``makemigrations`` management command, ensuring no migrations get missed.
 
   This step can be skipped by default by using the ``migrations = false`` setting. It will also be skipped automatically if Django is not installed.
 
@@ -63,6 +69,7 @@ Arguments
 * ``-p``/``--python``: Only run the Python linting step.
 * ``-f``/``--fable``: Only run the FABLE step.
 * ``-m``/``--migrations``: Only run the migration check step.
+* ``-c``/``syschecks``: Only run the Django system checks step.
 
 These arguments can be chained to specify any subset of these options, e.g.::
 

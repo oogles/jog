@@ -148,31 +148,10 @@ class UpdateTask(Task):
         
         self.stdout.write('\nChecking migrations', style='label')
         
-        # Django doesn't give a nice command to find unapplied migrations, so
-        # grep the entire migration list to exclude:
-        # - applied migrations (denoted by [X])
-        # - (no migrations) lines for apps without migrations
-        # - leftover app names with no migrations listed between them and
-        #   either the next app or the end of the input
-        # The grep -v flag excludes the lines that match and the -P flag is
-        # used to activate perl-regexp, which enables using \n.
-        # W605 (invalid escape sequence) is ignored because they *are* valid
-        # escape sequences, just not used in a Python-based regex operation.
-        cmd = (
-            "python manage.py showmigrations --list "
-            "| grep -v '\[X\]' "  # noqa W605
-            "| grep -v 'no migrations' "
-            "| grep -Pv '^[a-zA-Z0-9_]+(?=\Z|\\n[a-zA-Z_])'"  # noqa W605
-        )
+        cmd = "python manage.py migrate --plan --check"
         
-        list_result = self.cli(cmd, capture=True)
-        
-        if list_result.stderr:
-            self.stderr.write(list_result.stderr.decode('utf-8'))
-            raise TaskError('Migration check failed')
-        
-        list_output = list_result.stdout.decode('utf-8')
-        if not list_output:
+        plan_result = self.cli(cmd, capture=True)
+        if not plan_result.returncode:
             self.stdout.write('No changes detected')
             return
         
@@ -182,7 +161,7 @@ class UpdateTask(Task):
         if self.kwargs['no_input']:
             answer = 'y'
         else:
-            self.stdout.write(list_output)
+            self.stdout.write(plan_result.stdout.decode('utf-8'))
             answer = input('The above migrations are unapplied, apply them now (Y/n)? ')
         
         if answer.lower() == 'y':
