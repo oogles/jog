@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [tool.jogger.release]
 pypi_build = true
 authoritative_version_path = "./jogger/__init__.py"
-major_version_format = "^\d+\.\d+"
+major_version_format = "^\\d+\\.\\d+"
 release_branch_format = "{major_version}.x"
 
 [tool.jogger.lint]
@@ -30,17 +30,17 @@ extend-exclude = ["*/migrations/*"]
 
 [tool.ruff.lint]
 select = [
-    "A", # flake8-builtins
-    "C90", # McCabe complexity
-    "DJ", # flake8-django
-    "E", # pycodestyle errors
-    "F", # pyflakes
-    "FLY", # flynt (static-join-to-f-string)
-    "S", # flake8-bandit (security)
-    "W", # pycodestyle warnings
+    "A",    # flake8-builtins
+    "C90",  # McCabe complexity
+    "DJ",   # flake8-django
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "FLY",  # flynt (static-join-to-f-string)
+    "S",    # flake8-bandit (security)
+    "W",    # pycodestyle warnings
 ]
 ignore = [
-    "W293" # blank line contains whitespace
+    "W293"  # blank line contains whitespace
 ]
 
 [tool.ruff.lint.pycodestyle]
