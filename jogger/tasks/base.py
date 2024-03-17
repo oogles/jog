@@ -1,6 +1,7 @@
 import argparse
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -146,7 +147,12 @@ class BaseTask:
             if not self.using_system_err:
                 kwargs['stderr'] = self.kwargs['stderr']
         
-        return subprocess.run(cmd, shell=True, **kwargs)  # noqa: S602
+        try:
+            return subprocess.run(cmd, shell=True, **kwargs)  # noqa: S602
+        except KeyboardInterrupt:
+            # Don't show any errors on a KeyboardInterrupt - it is expected
+            # to end the running dev server
+            return subprocess.CompletedProcess(args=cmd.split(), returncode=-(signal.SIGINT))
     
     def execute(self):
         """
