@@ -27,6 +27,16 @@ class UpdateTask(Task):
                 'updates or migrations.'
             )
         )
+        
+        parser.add_argument(
+            '--skip-pull',
+            action='store_true',
+            help=(
+                'Skip the "git pull" and proceed directly to the subsequent '
+                'update steps. NOTE: This will force these steps to run even '
+                'if no code changes have occurred.'
+            )
+        )
     
     @property
     def branch_name(self):
@@ -35,17 +45,21 @@ class UpdateTask(Task):
     
     def handle(self, **options):
         
-        self.check_updates()
+        if not options['skip_pull']:
+            self.check_updates()
         
         requirements_path, temp_requirements_path = self.check_initial_requirements()
         
-        self.do_pull()
+        if not options['skip_pull']:
+            self.do_pull()
+        
+        self.pre_update()
         self.do_dependency_check(requirements_path, temp_requirements_path)
         self.do_migration_check()
         self.do_stale_contenttypes_check()
         self.do_build()
         self.do_collect_static()
-        self.do_restart()
+        self.post_update()
         
         self.stdout.write('\nDone!', style='label')
     
@@ -103,6 +117,12 @@ class UpdateTask(Task):
         if result.returncode:
             # Stop script here if the pull was not successful for any reason
             raise TaskError('Pull failed')
+    
+    def pre_update(self):
+        
+        # Hook for subclasses to run any pre-update tasks, such as stopping
+        # any necessary services during the update process
+        pass
     
     def do_dependency_check(self, requirements_path, temp_requirements_path):
         
@@ -210,8 +230,8 @@ class UpdateTask(Task):
         if result.returncode:
             raise TaskError('Static file collection failed')
     
-    def do_restart(self):
+    def post_update(self):
         
-        # Hook for subclasses to restart the necessary services after the
-        # update has been completed
+        # Hook for subclasses to run any post-update tasks, such as restarting
+        # any necessary services
         pass
