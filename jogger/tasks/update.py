@@ -48,20 +48,33 @@ class UpdateTask(Task):
         if not options['skip_pull']:
             self.check_updates()
         
+        summary = {}
         requirements_path, temp_requirements_path = self.check_initial_requirements()
         
         if not options['skip_pull']:
             self.do_pull()
+            
+            # Assume success. Errors/issues will interrupt the process.
+            summary['pull'] = True
+        else:
+            summary['pull'] = None  # skipped
         
         self.pre_update()
-        self.do_dependency_check(requirements_path, temp_requirements_path)
-        self.do_migration_check()
-        self.do_stale_contenttypes_check()
-        self.do_build()
-        self.do_collect_static()
-        self.post_update()
         
-        self.stdout.write('\nDone!', style='label')
+        summary['dependencies'] = self.do_dependency_check(requirements_path, temp_requirements_path)
+        summary['migrations'] = self.do_migration_check()
+        summary['content_types'] = self.do_stale_contenttypes_check()
+        
+        # A build step may not be defined, so a result of None indicates no
+        # build at all, rather than the step being skipped
+        build_result = self.do_build()
+        if build_result is not None:
+            summary['build'] = build_result
+        
+        summary['collect_static'] = self.do_collect_static()
+        
+        self.post_update()
+        self.show_summary(summary)
     
     def check_updates(self):
         
@@ -134,7 +147,7 @@ class UpdateTask(Task):
         
         if not diff_result.returncode:
             self.stdout.write('No changes detected')
-            return
+            return True
         
         # Changes were detected, show the differences and prompt the user
         # whether to proceed with an install or not. Alternatively, if running
@@ -146,23 +159,26 @@ class UpdateTask(Task):
             
             answer = input(
                 'The above Python library dependency changes were detected, '
-                'update now (Y/n)? '
+                'update now [y/n]? '
             )
         
         if answer.lower() == 'y':
             install_result = self.cli(f'pip install -r {requirements_path}')
             if install_result.returncode:
-                raise TaskError('Dependency install failed')
+                self.stderr.write('Dependency install failed')
+                return False
             
             # Make a copy of the now-applied requirements.txt to compare
             # next time the task is run
             shutil.copy(requirements_path, temp_requirements_path)
         elif answer.lower() == 'n':
             self.stdout.write('Dependency update skipped', style='warning')
+            return None  # skipped
         else:
             # User didn't answer yes OR no, display an error message but
             # don't interrupt execution
             self.stdout.write('Dependency update aborted', style='error')
+            return None  # skipped
     
     def do_migration_check(self):
         
@@ -173,38 +189,72 @@ class UpdateTask(Task):
         plan_result = self.cli(cmd, capture=True)
         if not plan_result.returncode:
             self.stdout.write('No changes detected')
-            return
+            return True
         
         # Changes were detected, show them and prompt the user whether to
         # proceed with a migration or not. Alternatively, if running in
         # no-input mode, proceed directly with the migrations.
-        if self.kwargs['no_input']:
+        if plan_result.stderr:
+            self.stderr.write(plan_result.stderr.decode('utf-8').strip(), style='normal')
+            self.stderr.write('Migration failed')
+            return False
+        elif self.kwargs['no_input']:
             answer = 'y'
         else:
             self.stdout.write(plan_result.stdout.decode('utf-8'))
-            answer = input('The above migrations are unapplied, apply them now (Y/n)? ')
+            answer = input('The above migrations are unapplied, apply them now [y/n]? ')
         
         if answer.lower() == 'y':
             migrate_result = self.cli('python manage.py migrate')
             if migrate_result.returncode:
-                raise TaskError('Migration failed')
+                self.stderr.write('Migration failed')
+                return False
         elif answer.lower() == 'n':
             self.stdout.write('Migrations skipped', style='warning')
+            return None  # skipped
         else:
             # User didn't answer yes OR no, display an error message but
             # don't interrupt execution
             self.stdout.write('Migrations aborted', style='error')
+            return None  # skipped
     
     def do_stale_contenttypes_check(self):
         
         if self.kwargs['no_input']:
             # Due to the possibility of deleting records, do not remove stale
             # content types when running in no-input mode
-            return
+            return None  # skipped
         
         self.stdout.write('\nChecking stale content types', style='label')
         
-        self.cli('python manage.py remove_stale_contenttypes')
+        # Fake a call to the management command to get the prompt (including
+        # the list of stale content types)
+        result = self.cli('yes no | python manage.py remove_stale_contenttypes', capture=True)
+        
+        if result.returncode:
+            self.stderr.write(result.stderr.decode('utf-8').strip(), style='normal')
+            self.stderr.write('Failed to detect stale content types')
+            return False
+        elif not result.stdout:
+            self.stdout.write('No stale content types detected')
+            return True
+        
+        # Some stale content types were found. Strip off the last line of
+        # output (the prompt) and manually re-prompt in order to detect skipping
+        output = result.stdout.decode('utf-8').strip().splitlines()[:-1]
+        self.stdout.write('\n'.join(output))
+        
+        answer = input("Type 'yes' to continue, or 'no' to cancel: ")
+        
+        if answer.lower() != 'y':
+            return None  # skipped
+        else:
+            result = self.cli('python manage.py remove_stale_contenttypes --no-input')
+            if result.returncode:
+                self.stderr.write('Stale content type removal failed')
+                return False
+        
+        return True
     
     def do_build(self):
         
@@ -213,25 +263,60 @@ class UpdateTask(Task):
         except TaskDefinitionError:
             # A "build" task either isn't defined or is invalidly defined.
             # Do nothing.
-            pass
+            return None
         else:
             self.stdout.write('\nRunning build/s', style='label')
-            proxy.execute()
+            
+            # Don't allow TaskErrors in the build step to interrupt the update
+            # process, just show the error and note the failure for the summary
+            try:
+                proxy.execute()
+            except TaskError as e:
+                self.stderr.write(str(e), style='normal')
+                self.stderr.write('Build failed')
+                return False
+            
+            return True
     
     def do_collect_static(self):
         
         self.stdout.write('\nCollecting static files', style='label')
         
-        cmd = 'python manage.py collectstatic'
         if self.kwargs['no_input']:
-            cmd = f'{cmd} --no-input'
+            answer = 'y'
+        else:
+            self.stdout.write(
+                f'This may {self.styler.label("overwrite existing files")} in your'
+                ' static files directory. Are you sure you want to do this?'
+            )
+            answer = input('Collect static files now [y/n]? ')
         
-        result = self.cli(cmd)
-        if result.returncode:
-            raise TaskError('Static file collection failed')
+        if answer.lower() != 'y':
+            return None  # skipped
+        else:
+            result = self.cli('python manage.py collectstatic --no-input')
+            if result.returncode:
+                self.stderr.write('Static file collection failed')
+                return False
+        
+        return True
     
     def post_update(self):
         
         # Hook for subclasses to run any post-update tasks, such as restarting
         # any necessary services
         pass
+    
+    def show_summary(self, summary):
+        
+        self.stdout.write('\nSummary', style='label')
+        
+        for step, result in summary.items():
+            if result is None:
+                output = self.styler.warning('Skipped')
+            elif not result:
+                output = self.styler.error('Failed')
+            else:
+                output = self.styler.success('OK')
+            
+            self.stdout.write(f'{step.capitalize().replace('_', ' ')}: {output}')
