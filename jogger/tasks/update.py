@@ -282,7 +282,7 @@ class UpdateTask(Task):
         
         self.stdout.write('\nCollecting static files', style='label')
         
-        if self.kwargs['no_input']:
+        if self.kwargs['no_input'] or self.settings.get('no_static_prompt', False):
             answer = 'y'
         else:
             self.stdout.write(
