@@ -85,14 +85,7 @@ class TestTask(Task):
         )
         
         parser.add_argument(
-            '--src',
-            default='',
-            dest='source',
-            help='Specify the source to measure the coverage of.'
-        )
-        
-        parser.add_argument(
-            '--cover',
+            '-c', '--cover',
             action='store_true',
             dest='force_cover',
             help=(
@@ -102,7 +95,7 @@ class TestTask(Task):
         )
         
         parser.add_argument(
-            '--no-cover',
+            '-n', '--no-cover',
             action='store_true',
             dest='no_cover',
             help='Run tests without any code coverage analysis.'
@@ -127,8 +120,6 @@ class TestTask(Task):
                 raise TaskError('--report and --no-cover are mutually exclusive.')
             elif not options['html_report']:
                 raise TaskError('--no-html and --no-cover are mutually exclusive.')
-            elif options['source']:
-                raise TaskError('--src and --no-cover are mutually exclusive.')
     
     @property
     def section_prefix(self):
@@ -140,14 +131,13 @@ class TestTask(Task):
         
         return ''
     
-    def get_coverage_command(self, test_paths, no_cover, quick, source, accumulate, **options):
+    def get_coverage_command(self, test_paths, no_cover, quick, accumulate, **options):
         
         if not HAS_COVERAGE or no_cover or quick:
             return ''
         
-        if source:
-            source = f' --source {source}'
-        elif test_paths:
+        source = ''
+        if test_paths:
             truncated_paths = set()
             for path in test_paths:
                 # If a path contains a "tests" segment (be it a directory or a
@@ -161,7 +151,7 @@ class TestTask(Task):
         
         accumulate = ' -a' if accumulate else ''
         
-        return f'coverage run --branch{source}{accumulate} '
+        return f'coverage run{source}{accumulate} '
     
     def get_test_command(self, test_paths, using_coverage, quick, verbosity, extra, **options):
         
@@ -184,8 +174,16 @@ class TestTask(Task):
         # Add --parallel switch if using "quick" mode, unless disabled in
         # settings or if the switch is provided explicitly in "extra" arguments
         if not any(v.startswith('--parallel') for v in extra):
-            parallel = self.settings.get('quick_parallel', None)
-            if quick and (parallel is None or int(parallel) > 1):
+            parallel = self.settings.get('parallel', None)
+            if quick:
+                parallel = self.settings.get('quick_parallel', parallel)
+                
+                # In "quick" mode, if the parallel setting is not explicitly
+                # disabled, assume it should be enabled
+                if parallel is None:
+                    parallel = True
+            
+            if parallel:
                 if not HAS_TBLIB:
                     self.stdout.write(self.styler.warning(
                         'Tracebacks in parallel tests may not display correctly: '
@@ -193,8 +191,10 @@ class TestTask(Task):
                     ))
                 
                 command.append('--parallel')
-                if parallel:
-                    command.append(parallel)
+                if parallel is not True:
+                    # Assume a specific integer count is provided, but ensure
+                    # it is appended as a string
+                    command.append(str(parallel))
         
         return ' '.join(command)
     
