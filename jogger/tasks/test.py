@@ -253,6 +253,13 @@ class TestTask(Task):
             
             result = self.cli(f'{coverage_command}{test_command}')
             tests_passed = result.returncode == 0
+            
+            # Combine coverage files from parallel subprocesses if tests were
+            # run in parallel, but not if accumulating (assume caller will
+            # handle combining after running all necessary tests)
+            if coverage_command and not options['accumulate'] and self.settings.get('parallel', None):
+                self.stdout.write('')  # newline
+                self.cli('coverage combine')
         
         if not HAS_COVERAGE:
             # Not having coverage available is simply a warning unless directly
