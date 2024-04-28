@@ -30,6 +30,8 @@ class TestTask(Task):
         'detailed HTML report.'
     )
     
+    reporting_includes_cache_file = '/tmp/cov_reporting_includes'  # noqa: S108
+    
     def __init__(self, *args, **kwargs):
         
         self._has_output = False
@@ -131,27 +133,89 @@ class TestTask(Task):
         
         return ''
     
-    def get_coverage_command(self, test_paths, no_cover, quick, accumulate, **options):
+    def clear_reporting_includes(self):
         
-        if not HAS_COVERAGE or no_cover or quick:
-            return ''
+        try:
+            os.remove(self.reporting_includes_cache_file)
+        except FileNotFoundError:
+            pass
+    
+    def store_reporting_includes(self, test_paths):
         
-        source = ''
-        if test_paths:
+        # Using coverage's `concurrency` configuration to run tests in parallel
+        # means the dynamic `--source` option available for `coverage run` is
+        # not respected by subprocesses (which only read from config files, not
+        # CLI options, see https://coverage.readthedocs.io/en/latest/subprocess.html).
+        # Replicate similar functionality by processing the provided test paths
+        # and using the `--include` option on the various reporting commands
+        # instead. For simplicity, use this approach even when tests are not
+        # configured to run in parallel.
+        # To facilitate reporting on previous test/coverage runs, store the
+        # generated includes list in a file for later retrieval.
+        
+        if not test_paths:
+            includes = 'all'
+        else:
             truncated_paths = set()
             for path in test_paths:
                 # If a path contains a "tests" segment (be it a directory or a
                 # test.py file), truncate that path to only what appears BEFORE
                 # that segment, and strip any trailing dots. If the path does
                 # not contain a "tests" segment, this will keep the whole path.
-                truncated_paths.add(path.split('tests')[0].strip('.'))
+                path = path.split('tests')[0].strip('.')
+                
+                # Convert from a dotted path spec to a file path spec
+                path = path.replace('.', '/')
+                
+                truncated_paths.add(f'{path}/*')
             
-            truncated_paths = ','.join(truncated_paths)
-            source = f' --source {truncated_paths}'
+            includes = ','.join(truncated_paths)
+            
+            # For some reason, a trailing comma is required when there is only
+            # one path present, otherwise coverage gives "No data to report.",
+            # so ensure a trailing comma is always present
+            includes = f'{includes},'
+        
+        with open(self.reporting_includes_cache_file, 'w') as f:
+            f.write(includes)
+    
+    def get_reporting_includes(self):
+        
+        try:
+            with open(self.reporting_includes_cache_file, 'r') as f:
+                includes = f.read().strip()
+        except FileNotFoundError:
+            # This should only occur when attempting to display reports from a
+            # previous run that did not generate coverage data.
+            raise TaskError('No reporting data available.')
+        
+        if includes == 'all':
+            # The special value 'all' indicates all files should be included
+            # in coverage reports, essentially meaning no `--include` option
+            # is necessary
+            includes = None
+        
+        return includes
+    
+    def get_coverage_command(self, test_paths, no_cover, quick, accumulate, **options):
+        
+        if not HAS_COVERAGE:
+            return ''
+        
+        if no_cover or quick:
+            # This run will not generate coverage data, so clear any previously
+            # stored includes to prevent later reporting attempts. There will
+            # be nothing to report.
+            self.clear_reporting_includes()
+            return ''
+        
+        # Generate and store an "includes" list, based on the given test paths,
+        # for use in later coverage reporting
+        self.store_reporting_includes(test_paths)
         
         accumulate = ' -a' if accumulate else ''
         
-        return f'coverage run{source}{accumulate} '
+        return f'coverage run{accumulate} '
     
     def get_test_command(self, test_paths, using_coverage, quick, verbosity, extra, **options):
         
@@ -198,31 +262,42 @@ class TestTask(Task):
         
         return ' '.join(command)
     
-    def do_summary(self, verbosity, **options):
+    def do_summary(self, includes, verbosity, **options):
         
         if verbosity < 1:
             return
         
         self.stdout.write(self.styler.label(f'{self.section_prefix}Coverage summary'))
-        if verbosity > 1:
-            self.cli('coverage report')
-        else:
-            self.cli('coverage report --skip-covered')
+        
+        cmd = 'coverage report'
+        
+        if includes:
+            cmd = f'{cmd} --include {includes}'
+        
+        if verbosity < 2:
+            cmd = f'{cmd} --skip-covered'
+        
+        self.cli(cmd)
     
-    def do_html_report(self, html_report, **options):
+    def do_html_report(self, includes, html_report, verbosity, **options):
         
         if not html_report:
             return
         
-        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'), ending=None)
-        self.cli('coverage html')
+        self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'))
         
-        self.stdout.write(' done')
+        cmd = 'coverage html'
+        
+        if includes:
+            cmd = f'{cmd} --include {includes}'
+        
+        if verbosity < 2:
+            cmd = f'{cmd} --skip-covered'
+        
+        self.cli(cmd)
         
         html_report_path = os.path.abspath('htmlcov/index.html')
         if os.path.exists(html_report_path):
-            self.stdout.write(f'HTML report written to: {html_report_path}')
-            
             html_report_url = f'file://{html_report_path}'
             path_swap = self.settings.get('report_path_swap', None)
             if path_swap:
@@ -276,8 +351,9 @@ class TestTask(Task):
                     'anyway by using the --cover switch.'
                 )
             else:
-                self.do_summary(**options)
-                self.do_html_report(**options)
+                includes = self.get_reporting_includes()
+                self.do_summary(includes, **options)
+                self.do_html_report(includes, **options)
                 self.stdout.write('')  # newline
     
     def cli(self, *args, **kwargs):
