@@ -80,13 +80,6 @@ class TestTask(Task):
         )
         
         parser.add_argument(
-            '--no-html',
-            action='store_false',
-            dest='html_report',
-            help='Do not generate a detailed HTML code coverage report.'
-        )
-        
-        parser.add_argument(
             '-c', '--cover',
             action='store_true',
             dest='force_cover',
@@ -282,10 +275,7 @@ class TestTask(Task):
         
         self.cli(cmd)
     
-    def do_html_report(self, includes, html_report, verbosity, **options):
-        
-        if not html_report:
-            return
+    def do_html_report(self, includes, verbosity, **options):
         
         self.stdout.write(self.styler.label(f'{self.section_prefix}Generating HTML report...'))
         
@@ -356,7 +346,13 @@ class TestTask(Task):
             else:
                 includes = self.get_reporting_includes()
                 self.do_summary(includes, **options)
-                self.do_html_report(includes, **options)
+                
+                if reports_only:
+                    # Only include the HTML report when explicitly requesting
+                    # reports. Don't include as part of the standard post-run
+                    # coverage summary.
+                    self.do_html_report(includes, **options)
+                
                 self.stdout.write('')  # newline
     
     def cli(self, *args, **kwargs):
