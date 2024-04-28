@@ -68,18 +68,6 @@ class TestTask(Task):
         )
         
         parser.add_argument(
-            '--report',
-            action='store_true',
-            dest='reports_only',
-            help=(
-                'Skip the test suite and just output the on-screen summary '
-                'and generate the HTML report. Useful to review previous '
-                'results or if using -a to accumulate results before running '
-                'the reports.'
-            )
-        )
-        
-        parser.add_argument(
             '-c', '--cover',
             action='store_true',
             dest='force_cover',
@@ -96,19 +84,43 @@ class TestTask(Task):
             help='Run tests without any code coverage analysis.'
         )
         
+        parser.add_argument(
+            '--report',
+            action='store_true',
+            dest='reports_only',
+            help=(
+                'Skip the test suite and just output the on-screen summary '
+                'and generate the HTML report. Useful to review previous '
+                'results or if using -a to accumulate results before running '
+                'the reports.'
+            )
+        )
+        
+        parser.add_argument(
+            '--erase',
+            action='store_true',
+            dest='erase_coverage',
+            help=(
+                'Erase any previously-stored coverage data. Must be run prior '
+                'to the first command in a run when using -a. Otherwise, data '
+                'will be accumulated into data from previous runs. Note: This '
+                'must be used over calling coverage erase directly.'
+            )
+        )
+        
         parser.add_argument('extra', nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
     
     def verify_arguments(self, options):
         
-        if options['reports_only']:
+        if options['reports_only'] or options['erase_coverage']:
+            switch = '--report' if options['reports_only'] else '--erase'
             if options['quick']:
-                raise TaskError('-q/--quick and --report are mutually exclusive.')
+                raise TaskError(f'-q/--quick and {switch} are mutually exclusive.')
             elif options['accumulate']:
-                raise TaskError('-a and --report are mutually exclusive.')
-            
-            if options['paths']:
-                raise TaskError('Test paths cannot be specified when using --report.')
-            
+                raise TaskError(f'-a and {switch} are mutually exclusive.')
+            elif options['paths']:
+                raise TaskError(f'Test paths cannot be specified when using {switch}.')
+        
         if options['no_cover']:
             if options['force_cover']:
                 raise TaskError('--cover and --no-cover are mutually exclusive.')
@@ -116,8 +128,6 @@ class TestTask(Task):
                 raise TaskError('-a and --no-cover are mutually exclusive.')
             elif options['reports_only']:
                 raise TaskError('--report and --no-cover are mutually exclusive.')
-            elif not options['html_report']:
-                raise TaskError('--no-html and --no-cover are mutually exclusive.')
     
     @property
     def section_prefix(self):
@@ -129,14 +139,19 @@ class TestTask(Task):
         
         return ''
     
-    def clear_reporting_includes(self):
+    def erase_coverage(self):
         
+        # Remove any stored reporting includes. This will trigger `--report`
+        # to display a useful message re not having any reporting data.
         try:
             os.remove(self.reporting_includes_cache_file)
         except FileNotFoundError:
             pass
+        
+        # Erase the actual coverage data
+        self.cli('coverage erase')
     
-    def store_reporting_includes(self, test_paths):
+    def store_reporting_includes(self, test_paths, accumulate=False):
         
         # Using coverage's `concurrency` configuration to run tests in parallel
         # means the dynamic `--source` option available for `coverage run` is
@@ -169,10 +184,12 @@ class TestTask(Task):
             
             # For some reason, a trailing comma is required when there is only
             # one path present, otherwise coverage gives "No data to report.",
-            # so ensure a trailing comma is always present
+            # so ensure a trailing comma is always present. This also makes it
+            # easier to append to the list if `accumulate` is True.
             includes = f'{includes},'
         
-        with open(self.reporting_includes_cache_file, 'w') as f:
+        read_mode = 'a' if accumulate else 'w'
+        with open(self.reporting_includes_cache_file, read_mode) as f:
             f.write(includes)
     
     def get_reporting_includes(self):
@@ -202,7 +219,7 @@ class TestTask(Task):
             # This run will not generate coverage data, so clear any previously
             # stored includes to prevent later reporting attempts. There will
             # be nothing to report.
-            self.clear_reporting_includes()
+            self.erase_coverage()
             return ''
         
         # Generate and store an "includes" list, based on the given test paths,
@@ -310,6 +327,10 @@ class TestTask(Task):
             raise TaskError('Django not detected.')
         
         self.verify_arguments(options)
+        
+        if options['erase_coverage']:
+            self.erase_coverage()
+            return
         
         reports_only = options['reports_only']
         tests_passed = True
