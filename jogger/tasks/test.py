@@ -112,7 +112,10 @@ class TestTask(Task):
                 raise TaskError('-q/--quick and --report are mutually exclusive.')
             elif options['accumulate']:
                 raise TaskError('-a and --report are mutually exclusive.')
-        
+            
+            if options['paths']:
+                raise TaskError('Test paths cannot be specified when using --report.')
+            
         if options['no_cover']:
             if options['force_cover']:
                 raise TaskError('--cover and --no-cover are mutually exclusive.')
