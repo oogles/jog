@@ -26,8 +26,8 @@ class TestTask(Task):
     
     help = (
         'Run the test suite. If coverage.py is detected, perform code '
-        'coverage analysis, print an on-screen summary, and generate a fully '
-        'detailed HTML report.'
+        'coverage analysis, print an on-screen summary, and optionally '
+        'generate a fully detailed HTML report.'
     )
     
     reporting_includes_cache_file = '/tmp/cov_reporting_includes'  # noqa: S108
@@ -129,6 +129,13 @@ class TestTask(Task):
             elif options['reports_only']:
                 raise TaskError('--report and --no-cover are mutually exclusive.')
     
+    def process_test_paths(self, test_paths):
+        
+        # Hook for subclasses to process test paths before they are used.
+        # Do nothing by default.
+        
+        return test_paths
+    
     @property
     def section_prefix(self):
         
@@ -210,21 +217,7 @@ class TestTask(Task):
         
         return includes
     
-    def get_coverage_command(self, test_paths, no_cover, quick, accumulate, **options):
-        
-        if not HAS_COVERAGE:
-            return ''
-        
-        if no_cover or quick:
-            # This run will not generate coverage data, so clear any previously
-            # stored includes to prevent later reporting attempts. There will
-            # be nothing to report.
-            self.erase_coverage()
-            return ''
-        
-        # Generate and store an "includes" list, based on the given test paths,
-        # for use in later coverage reporting
-        self.store_reporting_includes(test_paths)
+    def get_coverage_command(self, accumulate, **options):
         
         accumulate = ' -a' if accumulate else ''
         
@@ -321,6 +314,25 @@ class TestTask(Task):
         else:
             self.stdout.write(f'Location of HTML report unknown, expected: {html_report_path}', style='warning')
     
+    def do_tests(self, test_paths, coverage_command, **options):
+        
+        # Generate and store an "includes" list, based on the given test paths,
+        # for use in later coverage reporting
+        self.store_reporting_includes(test_paths, options['accumulate'])
+        
+        test_command = self.get_test_command(test_paths, using_coverage=bool(coverage_command), **options)
+        
+        result = self.cli(f'{coverage_command}{test_command}')
+        
+        # Combine coverage files from parallel subprocesses if tests were run
+        # in parallel, but not if accumulating (assume caller will handle
+        # combining after running all necessary tests)
+        if coverage_command and not options['accumulate'] and self.settings.get('parallel', None):
+            self.stdout.write('')  # newline
+            self.cli('coverage combine')
+        
+        return result.returncode == 0
+    
     def handle(self, *args, **options):
         
         if not HAS_DJANGO:
@@ -336,19 +348,20 @@ class TestTask(Task):
         tests_passed = True
         
         if not reports_only:
-            test_paths = options.pop('paths', None)
-            coverage_command = self.get_coverage_command(test_paths, **options)
-            test_command = self.get_test_command(test_paths, using_coverage=bool(coverage_command), **options)
+            test_paths = self.process_test_paths(options.pop('paths', None))
             
-            result = self.cli(f'{coverage_command}{test_command}')
-            tests_passed = result.returncode == 0
+            if not HAS_COVERAGE:
+                coverage_command = ''
+            elif options['no_cover'] or options['quick']:
+                # This run will not generate coverage data, so clear any
+                # previously stored reporting includes to prevent later
+                # reporting attempts. There will be nothing to report.
+                self.erase_coverage()
+                coverage_command = ''
+            else:
+                coverage_command = self.get_coverage_command(**options)
             
-            # Combine coverage files from parallel subprocesses if tests were
-            # run in parallel, but not if accumulating (assume caller will
-            # handle combining after running all necessary tests)
-            if coverage_command and not options['accumulate'] and self.settings.get('parallel', None):
-                self.stdout.write('')  # newline
-                self.cli('coverage combine')
+            tests_passed = self.do_tests(test_paths, coverage_command, **options)
         
         if not HAS_COVERAGE:
             # Not having coverage available is simply a warning unless directly
