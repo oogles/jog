@@ -98,16 +98,17 @@ The following is an example config file table containing all available config op
 ``TestTask``
 ============
 
-Runs the Django ``manage.py test`` command. Additionally, if `coverage.py <https://coverage.readthedocs.io/en/stable/>`_ is detected, it will perform code coverage analysis, print an on-screen summary, and generate a fully detailed HTML report.
+Runs the Django ``manage.py test`` command. Additionally, if `coverage.py <https://coverage.readthedocs.io/en/stable/>`_ is detected, it will perform code coverage analysis and print an on-screen summary. The on-screen summary and a fully detailed HTML report can also be generated after the fact, using the coverage data of the previous run, allowing re-checking or getting more detail on the last run without needing to run the tests again.
 
 ``TestTask`` makes use of the ``-v``/``--verbosity`` :ref:`default command line argument <class_tasks_default_args>` accepted by all class-based tasks, as outlined below.
 
 It uses the following coverage.py commands:
 
-* ``coverage run --branch`` to execute the test suite with code coverage. Some additional arguments may be passed based on arguments passed to ``TestTask`` itself. See below for details on accepted arguments.
+* ``coverage run`` to execute the test suite with code coverage. Some additional arguments may be passed based on arguments passed to ``TestTask`` itself. See below for details on accepted arguments.
 * ``coverage report --skip-covered`` to generate the on-screen summary report if the verbosity level is ``1`` (the default).
 * ``coverage report`` to generate the on-screen summary report if the verbosity level is ``2`` or more.
-* ``coverage html`` to generate the detailed HTML report.
+* ``coverage html --skip-covered`` to generate the detailed HTML report when the ``--report`` switch is given and the verbosity level is ``1`` (the default).
+* ``coverage html`` to generate the detailed HTML report when the ``--report`` switch is given and the verbosity level is ``2`` or more.
 
 .. note::
 
@@ -115,7 +116,7 @@ It uses the following coverage.py commands:
 
 .. note::
 
-    *All* reporting will be skipped if the test suite fails (as a failure typically means at least some code was not reached, and therefore not covered, so the reports won't necessarily be accurate). However, the task can be instructed to display the reports regardless of a failure by calling it with the ``--cover`` switch. Alternatively, the ``--report`` switch can be used to skip running the tests again and display the reports from the previous (failed) run.
+    *All* reporting will be skipped if the test suite fails (as a failure typically means at least some code was not reached, and therefore not covered, so the reports won't necessarily be accurate). However, the task can be instructed to display the reports regardless of a failure by calling it with the ``--cover`` switch (also available as ``-c``). Alternatively, the ``--report`` switch can be used to skip running the tests again and display the reports from the previous (failed) run.
 
 ``TestTask`` accepts several of its own arguments, detailed below, but also passes any additional arguments through to the underlying ``manage.py test`` command. Assuming the task has been given the name "test" in ``jog.py``, this means you can do any of the following::
 
@@ -125,24 +126,36 @@ It uses the following coverage.py commands:
     jog test myapp --settings=test_settings
     jog test myapp --keepdb
 
-.. _builtins-test-quick:
+.. _builtins-test-speed:
 
-Quick tests
------------
+Speeding up tests
+-----------------
 
-The task can be run in a "quick" mode by passing the ``--quick`` or ``-q`` flags::
+The ``manage.py test`` command's ``--parallel`` option can be used to speed up test execution by running multiple tests in parallel. While the option can be passed through to the underlying ``manage.py test`` command as described above, it can also be set to be used by default using the ``parallel`` setting. Assuming a task name of "test":
+
+.. code-block:: toml
+    
+    # pyproject.toml
+    [tool.jogger.test]
+    parallel = true
+
+Using a value of ``true`` enables the bare ``--parallel`` argument, while a integer value will be used as the value for the argument, e.g. ``--parallel=4``.
+
+.. important::
+    
+    There are some considerations to make before using ``--parallel``. Be sure to consult the `Django documentation <https://docs.djangoproject.com/en/stable/ref/django-admin/#cmdoption-test-parallel>`_ and take any necessary steps to ensure compatibility.
+
+``TestTask`` also supports a "quick" mode, enabled by passing the ``--quick`` or ``-q`` flags::
 
     jog test -q
 
-This mode skips any code coverage analysis and reporting, just running the test suite. By default, it also passes the ``--parallel`` argument to the ``manage.py test`` command. Since this argument is not always desirable, this behaviour can be disabled using the ``quick_parallel`` setting. Assuming a task name of "test":
+This mode skips any code coverage analysis and reporting, just running the test suite. It also uses the ``--parallel`` argument by default, regardless of the ``parallel`` setting. However, if that is not desirable, it can be disabled using the ``quick_parallel`` setting. Assuming a task name of "test":
 
 .. code-block:: toml
     
     # pyproject.toml
     [tool.jogger.test]
     quick_parallel = false
-
-See the `Django documentation <https://docs.djangoproject.com/en/stable/ref/django-admin/#cmdoption-test-parallel>`_ on the ``--parallel`` argument for more information.
 
 .. _builtins-test-accumulating:
 
@@ -153,38 +166,39 @@ Accumulating results
 
 .. code-block:: bash
 
+    jog test --erase
     jog test -a app1
     jog test -a app2 --settings=test_settings
     jog test --report
 
-.. _builtins-test-noise:
+It is important to use the ``--erase`` option before running any tests that will accumulate results. This will clear the existing coverage data, ensuring that only the coverage data from the current run is included in the reports. It should always be used in lieu of the standard ``coverage erase`` command, since it performs some extra steps on top of that.
 
 Reducing coverage noise
 -----------------------
 
 Sometimes, especially when running a subset of the full test suite, the coverage reports can contain a lot of noise in the form of files with low coverage scores because they are outside the scope of the tests. The presence of these extra files can make it more difficult to spot the missing coverage you're actually looking for.
 
-There are a number of ``coverage.py`` settings available to reduce this noise, as `covered in the documentation <https://coverage.readthedocs.io/en/stable/source.html>`_. ``TestTask`` supports the ``--source`` command-line argument via its own ``--src`` argument, but does not accept ``--include``/``--omit`` arguments. All options can still be set up via a suitable configuration file.
+There are a number of ``coverage.py`` settings available to reduce this noise, as `covered in the documentation <https://coverage.readthedocs.io/en/latest/source.html>`_. Due to being geared toward running tests in parallel, ``TestTask`` does not accept any of the listed command-line arguments to pass through to the coverage command (because they are `not respected by sub-processes <https://coverage.readthedocs.io/en/latest/subprocess.html>`_), but relevant options can still be set up via a suitable configuration file.
 
-If running a subset of the test suite, i.e. passing an explicit test path or paths, ``TestTask`` will make a best-guess at an explicit ``--source`` value to use. It won't always be perfect, but can at least help limit the number of completely unrelated files included in the coverage reports. The following describes how the value is chosen:
+If running a subset of the test suite, i.e. passing an explicit test path or paths, ``TestTask`` will make a best-guess at which files to report on. It then uses a relevant ``--include`` argument on any reporting commands to limit the reports to the files it deems relevant. It won't always be perfect, but can at least help limit the number of completely unrelated files included in the coverage reports. The following describes how the value is chosen:
 
 .. list-table::
     :header-rows: 1
 
     * - Command
-      - ``--source`` value
+      - ``--include`` value
     * - ``jog test myproject``
-      - ``myproject``
+      - ``myproject/*``
     * - ``jog test myproject.myapp``
-      - ``myproject.myapp``
+      - ``myproject.myapp/*``
     * - ``jog test myproject.myapp.tests``
-      - ``myproject.myapp``
+      - ``myproject.myapp/*``
     * - ``jog test myproject.myapp.tests.test_things.MyThingTestCase``
-      - ``myproject.myapp``
+      - ``myproject.myapp/*``
     * - ``jog test myproject.myapp1 myproject.myapp2``
-      - ``myproject.myapp1,myproject.myapp2``
+      - ``myproject.myapp1/*,myproject.myapp2/*``
 
-If no explicit test paths are passed, no attempt is made to automatically include the ``--source`` argument. If the ``TestTask`` argument ``--src`` is provided, it takes precedence.
+If no explicit test paths are passed, no attempt is made to automatically include the ``--include`` argument, and all files will be reported on.
 
 Use with virtual machines
 -------------------------
@@ -200,7 +214,7 @@ The ``report_path_swap`` setting can be used to correct this. As long as the gen
     report_path_swap = "/opt/app/src/ > /home/username/projectname/"
 
 .. tip::
-
+    
     If multiple developers are working on a project, this setting will rarely be the same for everyone. This makes it a good candidate for an :doc:`environment-specific config file <config>`.
 
 Arguments
@@ -208,16 +222,15 @@ Arguments
 
 ``TestTask`` accepts the following arguments:
 
-* ``-q``/``--quick``: Run a "quick" variant of the task: coverage analysis is skipped and the ``--parallel`` argument is passed to ``manage.py test``. See :ref:`builtins-test-quick`.
+* ``-q``/``--quick``: Run a "quick" variant of the task: coverage analysis is skipped and the ``--parallel`` argument is passed to ``manage.py test``. See :ref:`builtins-test-speed`.
 * ``-a``: Accumulate coverage data across multiple runs (passed as the ``-a`` argument to the ``coverage run`` command). No coverage reports will be run automatically. See :ref:`builtins-test-accumulating`.
-* ``--src``: The source to measure the coverage of (passed as the ``--source`` argument to the ``coverage run`` command). See :ref:`builtins-test-noise`.
+* ``--erase``: Remove all coverage data generated by previous test runs.
 * ``--report``: Skip the test suite and just generate the coverage reports. Useful to review previous results or if using ``-a`` to accumulate results.
-* ``--no-html``: Skip generating the detailed HTML code coverage report. The on-screen summary report will still be displayed.
-* ``--no-cover``: Run the test suite only. Skip all code coverage analysis and do not generate any coverage reports.
-* ``--cover``: Force coverage analysis and reports in situations where they would ordinarily be skipped, e.g. when the test suite fails.
+* ``-n`` / ``--no-cover``: Run the test suite only. Skip all code coverage analysis and do not generate any coverage reports.
+* ``-c`` / ``--cover``: Force coverage analysis and reports in situations where they would ordinarily be skipped, e.g. when the test suite fails.
 
 .. note::
-
+    
     All arguments to ``TestTask`` itself must be listed *before* any test paths or other arguments intended for the underlying ``manage.py test`` command.
 
 Settings
@@ -229,6 +242,7 @@ The following is an example config file table containing all available config op
     
     # pyproject.toml
     [tool.jogger.test]
+    parallel = true  # default: false
     quick_parallel = false  # default: true
     report_path_swap = "/opt/app/src/ > /home/username/projectname/"
 
