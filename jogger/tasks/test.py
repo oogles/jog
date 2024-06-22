@@ -316,20 +316,31 @@ class TestTask(Task):
     
     def do_tests(self, test_paths, coverage_command, **options):
         
-        # Generate and store an "includes" list, based on the given test paths,
-        # for use in later coverage reporting
-        self.store_reporting_includes(test_paths, options['accumulate'])
-        
         test_command = self.get_test_command(test_paths, using_coverage=bool(coverage_command), **options)
+        
+        # If coverage is enabled, ensure previous coverage data is erased prior
+        # to the test suite being run, and combined afterwards. This ensures
+        # that, even when tests are not being run in parallel, coverage.py
+        # configurations with the `concurrency` setting enabled will have
+        # access to clean, combined coverage data for reporting. However,
+        # this is only necessary if the `accumulate` flag is not set. If it
+        # is, assume the caller will handle erasing/combining as necessary.
+        handle_coverage = coverage_command and not options['accumulate']
+        
+        if handle_coverage:
+            self.erase_coverage()
         
         result = self.cli(f'{coverage_command}{test_command}')
         
-        # Combine coverage files from parallel subprocesses if tests were run
-        # in parallel, but not if accumulating (assume caller will handle
-        # combining after running all necessary tests)
-        if coverage_command and not options['accumulate'] and self.settings.get('parallel', None):
+        if handle_coverage:
             self.stdout.write('')  # newline
             self.cli('coverage combine')
+        
+        # Generate and store an "includes" list, based on the given test paths,
+        # for use in later coverage reporting. This MUST be done after previous
+        # coverage data is erased, should that be necessary, otherwise the
+        # stored includes list will also be erased.
+        self.store_reporting_includes(test_paths, options['accumulate'])
         
         return result.returncode == 0
     
@@ -362,6 +373,7 @@ class TestTask(Task):
                 coverage_command = self.get_coverage_command(**options)
             
             tests_passed = self.do_tests(test_paths, coverage_command, **options)
+            self.stdout.write('')  # newline
         
         if not HAS_COVERAGE:
             # Not having coverage available is simply a warning unless directly
