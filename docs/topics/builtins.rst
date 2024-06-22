@@ -139,11 +139,13 @@ The ``manage.py test`` command's ``--parallel`` option can be used to speed up t
     [tool.jogger.test]
     parallel = true
 
-Using a value of ``true`` enables the bare ``--parallel`` argument, while a integer value will be used as the value for the argument, e.g. ``--parallel=4``.
+Using a value of ``true`` enables the bare ``--parallel`` argument, while an integer value will be used as the value for the argument, e.g. ``--parallel=4``.
 
 .. important::
     
     There are some considerations to make before using ``--parallel``. Be sure to consult the `Django documentation <https://docs.djangoproject.com/en/stable/ref/django-admin/#cmdoption-test-parallel>`_ and take any necessary steps to ensure compatibility.
+    
+    Also be sure to consult the ``coverage.py`` documentation on `measuring sub-processes <https://coverage.readthedocs.io/en/latest/subprocess.html>`_ if planning to perform coverage analysis on tests running in parallel.
 
 ``TestTask`` also supports a "quick" mode, enabled by passing the ``--quick`` or ``-q`` flags::
 
