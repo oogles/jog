@@ -17,6 +17,7 @@ A ``jog.py`` file is all that is necessary to use ``jogger``, and it can be as s
     topics/config
     topics/output
     topics/builtins
+    topics/helpers
 
 .. toctree::
     :maxdepth: 2

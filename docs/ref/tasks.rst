@@ -2,9 +2,7 @@
 Tasks
 =====
 
-.. module:: jogger.tasks.base
-
-.. autoclass:: Task
+.. autoclass:: jogger.tasks.base.Task
 
     .. attribute:: help
 
@@ -47,3 +45,9 @@ Tasks
     .. automethod:: cli
     .. automethod:: get_task_proxy
     .. automethod:: long_input
+
+
+.. autoclass:: jogger.tasks.django.DjangoTask
+    
+    .. autoattribute:: django_settings_module
+    .. autoattribute:: django_settings
