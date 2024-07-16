@@ -128,11 +128,19 @@ If your project :doc:`defines a config file <config>`, and it contains a section
 
 Re-working the above example of the ``test`` task so that the use of `coverage.py <https://coverage.readthedocs.io/>`_ is based on a project-level setting might look like:
 
-.. code-block:: toml
+.. tab:: pyproject.toml
     
-    # pyproject.toml
-    [tool.jogger.test]
-    coverage = true
+    .. code-block:: toml
+        
+        [tool.jogger.test]
+        coverage = true
+
+.. tab:: setup.cfg
+    
+    .. code-block:: ini
+        
+        [jogger:test]
+        coverage = true
 
 .. code-block:: python
     

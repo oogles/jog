@@ -60,11 +60,19 @@ As noted above, task functions accept a ``settings`` argument. Your project can 
 
 Re-working the above example so that the use of `coverage.py <https://coverage.readthedocs.io/>`_ is based on a project-level setting might look like:
 
-.. code-block:: toml
+.. tab:: pyproject.toml
+    
+    .. code-block:: toml
+        
+        [tool.jogger.test]
+        coverage = true
 
-    # pyproject.toml
-    [tool.jogger.test]
-    coverage = true
+.. tab:: setup.cfg
+    
+    .. code-block:: ini
+        
+        [jogger:test]
+        coverage = true
 
 .. code-block:: python
 

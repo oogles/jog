@@ -3,4 +3,5 @@ isort==5.13.2
 ruff==0.3.2
 sphinx==7.2.6
 sphinx-rtd-theme==2.0.0
+sphinx-inline-tabs==2023.4.21
 twine==5.0.0
