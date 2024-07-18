@@ -344,6 +344,23 @@ class TestTask(Task):
         
         return result.returncode == 0
     
+    def handle_tests(self, paths, **options):
+        
+        test_paths = self.process_test_paths(paths)
+        
+        if not HAS_COVERAGE:
+            coverage_command = ''
+        elif options['no_cover'] or options['quick']:
+            # This run will not generate coverage data, so clear any
+            # previously stored reporting includes to prevent later
+            # reporting attempts. There will be nothing to report.
+            self.erase_coverage()
+            coverage_command = ''
+        else:
+            coverage_command = self.get_coverage_command(**options)
+        
+        return self.do_tests(test_paths, coverage_command, **options)
+    
     def handle(self, *args, **options):
         
         if not HAS_DJANGO:
@@ -359,20 +376,8 @@ class TestTask(Task):
         tests_passed = True
         
         if not reports_only:
-            test_paths = self.process_test_paths(options.pop('paths', None))
-            
-            if not HAS_COVERAGE:
-                coverage_command = ''
-            elif options['no_cover'] or options['quick']:
-                # This run will not generate coverage data, so clear any
-                # previously stored reporting includes to prevent later
-                # reporting attempts. There will be nothing to report.
-                self.erase_coverage()
-                coverage_command = ''
-            else:
-                coverage_command = self.get_coverage_command(**options)
-            
-            tests_passed = self.do_tests(test_paths, coverage_command, **options)
+            test_paths = options.pop('paths', None)
+            tests_passed = self.handle_tests(test_paths, **options)
             self.stdout.write('')  # newline
         
         if not HAS_COVERAGE:
