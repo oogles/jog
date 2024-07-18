@@ -38,16 +38,20 @@ It includes the following steps:
 
 1. Lint Python code using `ruff <https://docs.astral.sh/ruff/>`_ and `isort <https://github.com/PyCQA/isort>`_. Both programs will obey their respective configuration files if they are located in standard locations. Specifically, the following commands are executed in the project root directory (determined as the directory containing ``jog.py``):
 
-    * ``ruff check .``
-    * ``isort --check-only --diff .``
+  * ``ruff check .``
+  * ``isort --check-only --diff .``
 
   This step can be skipped by default by using the ``python = false`` setting. It will also be skipped automatically if neither ``ruff`` or ``isort`` are installed.
+  
+  .. note::
+      
+      While ``ruff`` has support for running ``isort`` checks itself, at the time of writing it is not particularly configurable. Thus, ``isort`` is still supported by ``LintTask`` directly. Should the level of configuration available in ``ruff`` be sufficient for your use case, simply not having ``isort`` installed will disable it running independently.
 
 2. Run FABLE (Find All Bad Line Endings), a custom script to ensure all relevant project files use consistent line endings. By default, it:
 
-    * Flags files not using ``LF`` line endings. This is configurable via the ``fable_good_endings`` setting.
-    * Ignores files larger than 1MB. This is configurable (in bytes) via the ``fable_max_filesize`` setting.
-    * Ignores a variety of irrelevant files, including ``.pyc`` files, PDFs, images, and everything in ``.git`` and ``__pycache__`` directories. Additional files can be ignored using the ``fable_exclude`` setting.
+  * Flags files not using ``LF`` line endings. This is configurable via the ``fable_good_endings`` setting.
+  * Ignores files larger than 1MB. This is configurable (in bytes) via the ``fable_max_filesize`` setting.
+  * Ignores a variety of irrelevant files, including ``.pyc`` files, PDFs, images, and everything in ``.git`` and ``__pycache__`` directories. Additional files can be ignored using the ``fable_exclude`` setting.
 
   This step can be skipped by default by using the ``fable = false`` setting.
 
