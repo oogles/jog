@@ -319,4 +319,5 @@ class UpdateTask(Task):
             else:
                 output = self.styler.success('OK')
             
-            self.stdout.write(f'{step.capitalize().replace('_', ' ')}: {output}')
+            step_title = step.capitalize().replace('_', ' ')
+            self.stdout.write(f'{step_title}: {output}')
