@@ -76,6 +76,10 @@ class UpdateTask(Task):
         self.post_update()
         self.show_summary(summary)
     
+    def get_collectstatic_command(self):
+        
+        return 'python manage.py collectstatic --no-input'
+    
     def check_updates(self):
         
         self.stdout.write('Checking for updates', style='label')
@@ -246,7 +250,7 @@ class UpdateTask(Task):
         
         answer = input("Type 'yes' to continue, or 'no' to cancel: ")
         
-        if answer.lower() != 'y':
+        if answer.lower() != 'yes':
             return None  # skipped
         else:
             result = self.cli('python manage.py remove_stale_contenttypes --no-input')
@@ -294,7 +298,8 @@ class UpdateTask(Task):
         if answer.lower() != 'y':
             return None  # skipped
         else:
-            result = self.cli('python manage.py collectstatic --no-input')
+            cmd = self.get_collectstatic_command()
+            result = self.cli(cmd)
             if result.returncode:
                 self.stderr.write('Static file collection failed')
                 return False
@@ -319,4 +324,5 @@ class UpdateTask(Task):
             else:
                 output = self.styler.success('OK')
             
-            self.stdout.write(f'{step.capitalize().replace('_', ' ')}: {output}')
+            step_title = step.capitalize().replace('_', ' ')
+            self.stdout.write(f'{step_title}: {output}')
