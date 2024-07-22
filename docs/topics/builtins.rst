@@ -377,44 +377,9 @@ Designed to be run on a staging/production server, this is a simple "deployment"
 5. Running Django's ``remove_stale_contenttypes`` management command to check for and prompt to remove any ``ContentType`` records whose corresponding models no longer exist in the source code.
 6. Running the ``jogger`` task named "build", if such a task exists. This allows individual projects to easily include any build steps in the process, while also allowing them to be run in isolation, without duplicating any logic. To enable this step, simply create a separate task and add it to ``jog.py`` with the name "build".
 7. Collecting static files via Django's ``collectstatic`` management command.
-8. Restarting any necessary services. This step does nothing by default. See :ref:`builtins-update-subclassing` below for details on using a subclass of ``UpdateTask`` to customise this step.
+8. Showing a summary of the steps taken and their success/failure.
 
-.. _builtins-update-subclassing:
-
-Subclassing
------------
-
-Each step outlined above corresponds to a different method in the ``UpdateTask`` class. This allows subclasses to override individual steps as necessary. The methods are:
-
-* ``check_updates()``
-* ``do_pull()``
-* ``do_dependency_check()``
-* ``do_migration_check()``
-* ``do_stale_contenttypes_check()``
-* ``do_build()``
-* ``do_collect_static()``
-* ``do_restart()``
-
-This is particularly important for the final step, restarting services, as it does nothing by default. The following example shows a subclass overriding ``do_restart()`` and restarting the `gunicorn <https://gunicorn.org/>`_ service using `supervisord <https://supervisord.org/>`_:
-
-.. code-block:: python
-
-    from jogger.tasks import TaskError, UpdateTask
-
-
-    class CustomUpdateTask(UpdateTask):
-
-        def do_restart(self):
-
-            self.stdout.write('Restarting gunicorn', style='label')
-            result = self.cli('supervisorctl restart gunicorn')
-
-            if result.returncode:
-                raise TaskError('Restart failed')
-
-    tasks = {
-        'update': CustomUpdateTask
-    }
+Steps ``1`` and ``2`` can be skipped by using the ``--skip-pull`` argument when invoking the task. This allows running the later steps even when there are no remote changes to pull in, which would otherwise end the process. This can be necessary if an earlier update was interrupted or failed for some reason and therefore needs to be retried.
 
 .. _builtins-update-noinput:
 
@@ -430,11 +395,25 @@ By default, ``UpdateTask`` prompts the user before proceeding in several situati
 
 If running as part of a larger script, or in any kind of automated setting, such prompts are usually unwanted. The ``--no-input`` argument can be used to skip these prompts. In most cases, this has the same affect as answering "yes" to the prompt, i.e. continuing with the action. However, the check for stale content types is *skipped entirely* when ``--no-input`` is used. Due to the possibility of other records being deleted along with the obsolete ``ContentType`` records, and therefore the potential for unexpected data loss, this step is only run when a user can review and manually confirm that the stale content types should be removed.
 
+The prompt for collecting static files can also be skipped using the ``no_static_prompt`` setting. Since it is usually a safe operation, and it occurs after the "build" step (which is potentially time consuming), using this setting can allow the update process to finish unattended, even if earlier steps require user input.
+
+.. _builtins-update-subclassing:
+
+Subclassing
+-----------
+
+Given the likelihood of projects requiring additional steps to be taken during the update process, ``UpdateTask`` is designed to be subclassed. The following methods are available as hooks for subclasses to override:
+
+* ``pre_update()``: Run after changes are pulled (or if pulling changes is skipped via ``--skip-pull``), and before any other update steps. Not run if no changes are detected. This can be used to take any action necessary prior to the main update process, such as stopping services.
+* ``post_update()``: Run after all other update steps have completed, and before showing the summary. This can be used, for example, to restart any services stopped by ``pre_update()``.
+* ``get_collectstatic_command()``: Returns the command to be run for the collectstatic step. This allows customisation of the command, e.g. to run it as a different user.
+
 Arguments
 ---------
 
 ``UpdateTask`` accepts the following arguments:
 
+* ``--skip-pull``: Skip the pull step, allowing the rest of the update process to run even if no remote changes would be detected.
 * ``--no-input``: Run without prompting the user for input. See :ref:`builtins-update-noinput`.
 
 Settings
@@ -447,11 +426,13 @@ The following is an example section of a config file containing all available co
     .. code-block:: toml
         
         [tool.jogger.update]
-        branch_name = "trunk"  # the branch name to pull from (default: main)
+        branch_name = "trunk"    # the branch name to pull from (default: main)
+        no_static_prompt = true  # skip the prompt for collecting static files (default: false)
 
 .. tab:: setup.cfg
     
     .. code-block:: ini
         
         [jogger:update]
-        branch_name = trunk  # the branch name to pull from (default: main)
+        branch_name = trunk      # the branch name to pull from (default: main)
+        no_static_prompt = true  # skip the prompt for collecting static files (default: false)
