@@ -150,8 +150,8 @@ class BaseTask:
         try:
             return subprocess.run(cmd, shell=True, **kwargs)  # noqa: S602
         except KeyboardInterrupt:
-            # Don't show any errors on a KeyboardInterrupt - it is expected
-            # to end the running dev server
+            # Don't show any errors on a KeyboardInterrupt - it may be expected
+            # to end the running process
             return subprocess.CompletedProcess(args=cmd.split(), returncode=-(signal.SIGINT))
     
     def execute(self):
