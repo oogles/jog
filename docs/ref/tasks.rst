@@ -51,3 +51,6 @@ Tasks
     
     .. autoattribute:: django_settings_module
     .. autoattribute:: django_settings
+
+
+.. autofunction:: jogger.tasks.django.configure_django
