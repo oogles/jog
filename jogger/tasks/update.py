@@ -250,7 +250,7 @@ class UpdateTask(Task):
         
         answer = input("Type 'yes' to continue, or 'no' to cancel: ")
         
-        if answer.lower() != 'y':
+        if answer.lower() != 'yes':
             return None  # skipped
         else:
             result = self.cli('python manage.py remove_stale_contenttypes --no-input')
