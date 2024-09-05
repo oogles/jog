@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+2.0.1 (2024-09-05)
+------------------
+
+* Fixed bug in ``UpdateTask`` where the migrations step was incorrectly reported as "skipped" when it was completed successfully.
+
 2.0.0 (2024-07-23)
 ------------------
 
