@@ -213,6 +213,8 @@ class UpdateTask(Task):
             if migrate_result.returncode:
                 self.stderr.write('Migration failed')
                 return False
+            
+            return True
         elif answer.lower() == 'n':
             self.stdout.write('Migrations skipped', style='warning')
             return None  # skipped
