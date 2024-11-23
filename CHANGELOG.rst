@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+2.0.2 (unreleased)
+------------------
+
+* Fixed bug in ``UpdateTask`` where the migrations step was incorrectly reported as "failed" when the output of the check command contained warnings.
+
 2.0.1 (2024-09-05)
 ------------------
 
