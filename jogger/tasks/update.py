@@ -175,6 +175,8 @@ class UpdateTask(Task):
             # Make a copy of the now-applied requirements.txt to compare
             # next time the task is run
             shutil.copy(requirements_path, temp_requirements_path)
+            
+            return True
         elif answer.lower() == 'n':
             self.stdout.write('Dependency update skipped', style='warning')
             return None  # skipped
@@ -188,7 +190,8 @@ class UpdateTask(Task):
         
         self.stdout.write('\nChecking migrations', style='label')
         
-        cmd = "python manage.py migrate --plan --check"
+        # Ignore all warnings to avoid polluting stderr
+        cmd = "python -W ignore manage.py migrate --plan --check"
         
         plan_result = self.cli(cmd, capture=True)
         if not plan_result.returncode:
@@ -234,8 +237,9 @@ class UpdateTask(Task):
         self.stdout.write('\nChecking stale content types', style='label')
         
         # Fake a call to the management command to get the prompt (including
-        # the list of stale content types)
-        result = self.cli('yes no | python manage.py remove_stale_contenttypes', capture=True)
+        # the list of stale content types). Ignore all warnings to avoid
+        # polluting stderr.
+        result = self.cli('yes no | python -W ignore manage.py remove_stale_contenttypes', capture=True)
         
         if result.returncode:
             self.stderr.write(result.stderr.decode('utf-8').strip(), style='normal')

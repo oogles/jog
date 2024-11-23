@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+2.0.2 (2024-11-23)
+------------------
+
+* Fixed bug in ``UpdateTask`` where the migrations step was incorrectly reported as "failed" when the output of the check command contained warnings.
+* Fixed bug in ``UpdateTask`` where the dependency step was incorrectly reported as "skipped" when it was completed successfully.
+
 2.0.1 (2024-09-05)
 ------------------
 
