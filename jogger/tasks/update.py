@@ -175,6 +175,8 @@ class UpdateTask(Task):
             # Make a copy of the now-applied requirements.txt to compare
             # next time the task is run
             shutil.copy(requirements_path, temp_requirements_path)
+            
+            return True
         elif answer.lower() == 'n':
             self.stdout.write('Dependency update skipped', style='warning')
             return None  # skipped
