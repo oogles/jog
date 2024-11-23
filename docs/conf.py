@@ -23,7 +23,7 @@ copyright = '2024, Alex Church'  # noqa: A001 (builtin shadowing)
 author = 'Alex Church'
 
 # The full version, including alpha/beta/rc tags
-release = '2.0.1'
+release = '2.0.2'
 version = '2.0'
 
 
